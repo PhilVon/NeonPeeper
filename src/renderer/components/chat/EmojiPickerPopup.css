@@ -1,0 +1,25 @@
+.emoji-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+}
+
+.emoji-picker-container {
+  position: absolute;
+  bottom: 60px;
+  left: 8px;
+  z-index: var(--z-modal);
+}
+
+em-emoji-picker {
+  --em-rgb-background: 20, 22, 30;
+  --em-rgb-input: 30, 33, 45;
+  --em-rgb-color: 200, 210, 220;
+  --em-rgb-accent: 0, 255, 255;
+  --em-color-border: var(--border-color);
+  --em-color-border-over: rgba(0, 255, 255, 0.4);
+  --font-family: var(--font-mono);
+  border: 1px solid rgba(0, 255, 255, 0.3) !important;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.1), 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  border-radius: var(--radius-md) !important;
+}

@@ -193,6 +193,7 @@ export class SignalingClient {
 
       case 'peer-left': {
         const peerId = msg.peerId as string
+        usePeerStore.getState().removePeer(peerId)
         this.emit('peer-left', peerId)
         break
       }

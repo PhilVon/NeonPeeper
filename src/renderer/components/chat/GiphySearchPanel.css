@@ -1,0 +1,112 @@
+.giphy-panel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+}
+
+.giphy-panel {
+  position: absolute;
+  bottom: 60px;
+  left: 8px;
+  width: 360px;
+  height: 420px;
+  background: var(--bg-darkest);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.1), 0 8px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: var(--z-modal);
+}
+
+.giphy-panel-header {
+  padding: var(--spacing-sm);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.giphy-panel-search {
+  width: 100%;
+  background: var(--bg-medium);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.giphy-panel-search:focus {
+  border-color: var(--neon-cyan);
+}
+
+.giphy-panel-search::placeholder {
+  color: var(--text-muted);
+}
+
+.giphy-panel-grid {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-xs);
+}
+
+.giphy-panel-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.giphy-panel-grid::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+
+.giphy-panel-grid::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.giphy-panel-footer {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-top: 1px solid var(--border-color);
+  text-align: center;
+}
+
+.giphy-panel-attribution {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.giphy-panel-no-key {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: var(--spacing-lg);
+  text-align: center;
+  gap: var(--spacing-md);
+}
+
+.giphy-panel-no-key p {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.giphy-panel-no-key a {
+  color: var(--neon-cyan);
+  text-decoration: none;
+}
+
+.giphy-panel-no-key a:hover {
+  text-decoration: underline;
+}
+
+.giphy-panel-loading,
+.giphy-panel-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}

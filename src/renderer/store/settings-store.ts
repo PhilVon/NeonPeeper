@@ -16,6 +16,9 @@ interface SettingsState {
   micDeviceId: string
   speakerDeviceId: string
 
+  // Integrations
+  giphyApiKey: string
+
   // STUN/TURN
   stunServers: string[]
   turnServer: string
@@ -24,6 +27,7 @@ interface SettingsState {
 
   // Actions
   setDisplayName: (name: string) => void
+  setGiphyApiKey: (key: string) => void
   setSignalingUrl: (url: string) => void
   setAutoConnect: (enabled: boolean) => void
   setDesktopNotifications: (enabled: boolean) => void
@@ -53,12 +57,15 @@ export const useSettingsStore = create<SettingsState>()(
       micDeviceId: '',
       speakerDeviceId: '',
 
+      giphyApiKey: '',
+
       stunServers: ['stun:stun.l.google.com:19302'],
       turnServer: '',
       turnUsername: '',
       turnPassword: '',
 
       setDisplayName: (name) => set({ displayName: name }),
+      setGiphyApiKey: (key) => set({ giphyApiKey: key }),
       setSignalingUrl: (url) => set({ signalingUrl: url }),
       setAutoConnect: (enabled) => set({ autoConnect: enabled }),
       setDesktopNotifications: (enabled) => set({ desktopNotifications: enabled }),

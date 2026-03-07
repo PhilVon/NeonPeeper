@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { usePeerStore } from '../../store/peer-store'
 import { Avatar } from '../ui/Avatar'
+import { GifMessage } from './GifMessage'
 import { useClickOutside } from '../../hooks/useClickOutside'
 import type { ChatMessage as ChatMessageType } from '../../types/chat'
 import './ChatMessage.css'
@@ -41,6 +42,7 @@ export function ChatMessage({
   const localId = usePeerStore.getState().localProfile?.id
   const isOwn = message.from === localId
   const peer = usePeerStore((s) => s.peers.get(message.from))
+  const isGif = message.contentType === 'gif'
 
   useClickOutside(menuRef, () => setShowMenu(false), showMenu)
 
@@ -76,7 +78,11 @@ export function ChatMessage({
           </div>
         )}
         <div className="chat-message-bubble">
-          <span className="chat-message-text">{message.content}</span>
+          {isGif ? (
+            <GifMessage url={message.content} meta={message.meta} />
+          ) : (
+            <span className="chat-message-text">{message.content}</span>
+          )}
           <span className="chat-message-meta">
             {message.edited && <span className="chat-message-edited">edited</span>}
             <span className="chat-message-time">{formatTime(message.timestamp)}</span>
@@ -92,7 +98,7 @@ export function ChatMessage({
                 Reply
               </button>
             )}
-            {isOwn && onEdit && (
+            {isOwn && onEdit && !isGif && (
               <button onClick={() => { onEdit(message.id, message.content); setShowMenu(false) }}>
                 Edit
               </button>

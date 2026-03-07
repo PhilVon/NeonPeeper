@@ -30,6 +30,14 @@ export function ChatList({ onNewChat }: ChatListProps) {
         return peers.get(otherMember)?.displayName ?? otherMember.slice(0, 8) + '...'
       }
     }
+    if (chat.type === 'group') {
+      const localId = usePeerStore.getState().localProfile?.id
+      const otherMembers = chat.members.filter((m) => m !== localId)
+      const names = otherMembers.map((m) =>
+        peers.get(m)?.displayName ?? m.slice(0, 8) + '...'
+      )
+      return names.join(', ') || 'Empty Group'
+    }
     return 'Unknown Chat'
   }
 

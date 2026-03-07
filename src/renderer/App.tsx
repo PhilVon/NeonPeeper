@@ -11,6 +11,7 @@ import { PeerInvite } from './components/peers/PeerInvite'
 import { PeerList } from './components/peers/PeerList'
 import { ChatList } from './components/chat/ChatList'
 import { ChatView } from './components/chat/ChatView'
+import { CreateGroupChat } from './components/chat/CreateGroupChat'
 import { VideoGrid } from './components/media/VideoGrid'
 import { MediaControls } from './components/media/MediaControls'
 import { ScreenSourcePicker } from './components/media/ScreenSourcePicker'
@@ -46,6 +47,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('peers')
   const [showPeerInvite, setShowPeerInvite] = useState(false)
   const [showScreenPicker, setShowScreenPicker] = useState(false)
+  const [showCreateGroup, setShowCreateGroup] = useState(false)
   const localProfile = usePeerStore((s) => s.localProfile)
   const chats = useChatStore((s) => s.chats)
   const activeChatId = useChatStore((s) => s.activeChatId)
@@ -279,6 +281,7 @@ export function App() {
         if (activeChat) {
           return (
             <ChatView
+              key={activeChat.id}
               chat={activeChat}
               onCallClick={() => {
                 const localId = usePeerStore.getState().localProfile?.id
@@ -315,7 +318,7 @@ export function App() {
 
   const renderSidebarContent = () => {
     if (activeTab === 'chats') {
-      return <ChatList />
+      return <ChatList onNewChat={() => setShowCreateGroup(true)} />
     }
     return null
   }
@@ -352,6 +355,14 @@ export function App() {
         onClose={() => setShowScreenPicker(false)}
         onSelect={handleSelectScreenSource}
       />
+      <CreateGroupChat
+        isOpen={showCreateGroup}
+        onClose={() => setShowCreateGroup(false)}
+        onCreated={(chatId) => {
+          useChatStore.getState().setActiveChat(chatId)
+          setActiveTab('chats')
+        }}
+      />
     </div>
   )
 }
@@ -366,6 +377,8 @@ function SettingsPage() {
   const setAutoConnect = useSettingsStore((s) => s.setAutoConnect)
   const localProfile = usePeerStore((s) => s.localProfile)
 
+  const giphyApiKey = useSettingsStore((s) => s.giphyApiKey)
+  const setGiphyApiKey = useSettingsStore((s) => s.setGiphyApiKey)
   const signalingClient = getSignalingClient()
   const [signalingState, setSignalingState] = useState(signalingClient.getState())
 
@@ -437,6 +450,49 @@ function SettingsPage() {
                 </NeonButton>
               )}
             </div>
+          </section>
+
+          <section className="app-settings-section">
+            <h3>Integrations</h3>
+            <NeonInput
+              label="Giphy API Key"
+              type="password"
+              value={giphyApiKey}
+              onChange={(e) => setGiphyApiKey(e.target.value)}
+              placeholder="Enter your Giphy API key"
+            />
+            <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: 'var(--spacing-xs)' }}>
+              Get a free API key at{' '}
+              <a href="https://developers.giphy.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--neon-cyan)' }}>
+                developers.giphy.com
+              </a>
+            </p>
+          </section>
+
+          <section className="app-settings-section app-settings-danger">
+            <h3>Danger Zone</h3>
+            <p className="text-muted" style={{ marginBottom: 'var(--spacing-md)' }}>
+              Clear all stored chats, messages, and settings. This cannot be undone.
+            </p>
+            <NeonButton
+              variant="danger"
+              size="small"
+              onClick={async () => {
+                if (!confirm('Clear all data? This will remove all chats, messages, and settings.')) return
+                try {
+                  await getPersistenceManager().clearAll()
+                  useChatStore.getState().clearAll()
+                  localStorage.removeItem('neon-peeper-settings')
+                  toast.success('All data cleared. Reloading...')
+                  setTimeout(() => window.location.reload(), 1000)
+                } catch (err) {
+                  console.error('Failed to clear data:', err)
+                  toast.error('Failed to clear data')
+                }
+              }}
+            >
+              Clear All Data
+            </NeonButton>
           </section>
         </TabPanel>
 

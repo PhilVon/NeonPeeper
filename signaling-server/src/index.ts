@@ -49,6 +49,12 @@ function removePeer(peerId: string): void {
   }
 
   peers.delete(peerId)
+
+  // Notify all remaining peers about the disconnection
+  for (const [, remainingPeer] of peers) {
+    send(remainingPeer.ws, { type: 'peer-left', peerId })
+  }
+
   console.log(`[Signaling] Peer disconnected: ${peerId} (${peer.displayName})`)
 }
 
@@ -95,6 +101,18 @@ wss.on('connection', (ws) => {
         })
 
         send(ws, { type: 'registered', peerId })
+
+        // Notify all existing peers about the new peer
+        for (const [existingId, existingPeer] of peers) {
+          if (existingId !== peerId) {
+            send(existingPeer.ws, {
+              type: 'peer-joined',
+              peerId,
+              displayName,
+            })
+          }
+        }
+
         console.log(`[Signaling] Peer registered: ${peerId} (${displayName})`)
         break
       }

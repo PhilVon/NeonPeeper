@@ -143,6 +143,14 @@ class PersistenceManager {
       await db.put('chats', chat)
     }
   }
+
+  async clearAll(): Promise<void> {
+    const db = this.ensureDb()
+    const tx = db.transaction(['messages', 'chats'], 'readwrite')
+    await tx.objectStore('messages').clear()
+    await tx.objectStore('chats').clear()
+    await tx.done
+  }
 }
 
 // Singleton

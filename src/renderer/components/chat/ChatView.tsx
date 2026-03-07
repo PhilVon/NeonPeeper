@@ -9,6 +9,7 @@ import { TypingIndicator } from './TypingIndicator'
 import { getPersistenceManager } from '../../services/PersistenceManager'
 import { getConnectionManager } from '../../services/ConnectionManager'
 import { createMessage, PROTOCOL_CONSTANTS } from '../../types/protocol'
+import type { GifMeta } from '../../types/protocol'
 import { toast } from '../../store/toast-store'
 import type { Chat, ChatMessage as ChatMessageType } from '../../types/chat'
 import './ChatView.css'
@@ -79,8 +80,9 @@ export function ChatView({ chat, onCallClick, onVideoClick }: ChatViewProps) {
   }, [chat.id, messages])
 
   const handleSend = useCallback(
-    (content: string) => {
-      if (content.length > PROTOCOL_CONSTANTS.MAX_TEXT_LENGTH) {
+    (content: string, contentType?: 'text' | 'gif', meta?: GifMeta) => {
+      // Skip length check for GIF messages (URLs are short)
+      if (contentType !== 'gif' && content.length > PROTOCOL_CONSTANTS.MAX_TEXT_LENGTH) {
         toast.error(`Message too long (max ${PROTOCOL_CONSTANTS.MAX_TEXT_LENGTH} characters)`)
         return
       }
@@ -96,6 +98,8 @@ export function ChatView({ chat, onCallClick, onVideoClick }: ChatViewProps) {
         timestamp: now,
         status: 'sending',
         replyTo: replyTo?.id,
+        contentType,
+        meta,
       }
 
       // Add to store
@@ -116,6 +120,8 @@ export function ChatView({ chat, onCallClick, onVideoClick }: ChatViewProps) {
         const msg = createMessage('TEXT', localId, memberId, {
           content,
           replyTo: replyTo?.id,
+          contentType,
+          meta,
         }, chat.id)
         // Use the same message ID for dedup
         ;(msg as { id: string }).id = messageId

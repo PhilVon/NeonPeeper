@@ -65,10 +65,21 @@ export interface DisconnectPayload {
   code: DisconnectCode
 }
 
+// GIF metadata
+export interface GifMeta {
+  gifUrl: string
+  gifPreviewUrl: string
+  gifWidth: number
+  gifHeight: number
+  gifTitle: string
+}
+
 // Text payloads
 export interface TextPayload {
   content: string
   replyTo?: string
+  contentType?: 'text' | 'gif'
+  meta?: GifMeta
 }
 
 export interface TextAckPayload {

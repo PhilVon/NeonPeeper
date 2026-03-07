@@ -17,6 +17,7 @@ interface ChatState {
   markAsRead: (chatId: string) => void
   loadOlderMessages: (chatId: string, messages: ChatMessage[]) => void
   removeChat: (chatId: string) => void
+  clearAll: () => void
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -49,7 +50,7 @@ export const useChatStore = create<ChatState>((set) => ({
           ...chat,
           lastActivity: message.timestamp,
           lastMessageId: message.id,
-          lastMessagePreview: message.content.slice(0, 100),
+          lastMessagePreview: message.contentType === 'gif' ? '[GIF]' : message.content.slice(0, 100),
           unreadCount: isActive ? chat.unreadCount : chat.unreadCount + 1,
         })
       }
@@ -140,4 +141,7 @@ export const useChatStore = create<ChatState>((set) => ({
       messages.delete(chatId)
       return { chats, messages, activeChatId: state.activeChatId === chatId ? null : state.activeChatId }
     }),
+
+  clearAll: () =>
+    set({ chats: new Map(), messages: new Map(), activeChatId: null, typing: new Map() }),
 }))

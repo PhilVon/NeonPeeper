@@ -1,3 +1,5 @@
+import type { GifMeta } from './protocol'
+
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read'
 
 export interface ChatMessage {
@@ -10,6 +12,8 @@ export interface ChatMessage {
   replyTo?: string
   edited?: { editedAt: number; originalContent: string }
   deleted?: boolean
+  contentType?: 'text' | 'gif'
+  meta?: GifMeta
 }
 
 export type ChatType = 'direct' | 'group'
@@ -39,6 +43,8 @@ export interface StoredMessage {
   replyTo?: string
   edited?: { editedAt: number; originalContent: string }
   deleted?: boolean
+  contentType?: 'text' | 'gif'
+  meta?: GifMeta
 }
 
 export interface StoredChat {

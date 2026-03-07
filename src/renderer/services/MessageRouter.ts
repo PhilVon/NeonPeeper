@@ -237,6 +237,8 @@ export class MessageRouter {
       timestamp: message.timestamp,
       status: 'delivered',
       replyTo: message.payload.replyTo,
+      contentType: message.payload.contentType,
+      meta: message.payload.meta,
     }
 
     chatStore.addMessage(chatMessage)

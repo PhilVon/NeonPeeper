@@ -29,7 +29,7 @@ export function VideoTile({
     if (videoRef.current) {
       videoRef.current.srcObject = stream
     }
-  }, [stream])
+  }, [stream, videoEnabled])
 
   const hasVideo = stream && videoEnabled && stream.getVideoTracks().some((t) => t.enabled)
 

@@ -1,9 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { NeonButton } from '../ui/NeonButton'
+import { EmojiPickerPopup } from './EmojiPickerPopup'
+import { GiphySearchPanel } from './GiphySearchPanel'
+import type { GifMeta } from '../../types/protocol'
 import './ChatInput.css'
 
 interface ChatInputProps {
-  onSend: (content: string) => void
+  onSend: (content: string, contentType?: 'text' | 'gif', meta?: GifMeta) => void
   onTyping?: () => void
   replyTo?: { id: string; content: string } | null
   onCancelReply?: () => void
@@ -24,6 +27,8 @@ export function ChatInput({
   disabled = false,
 }: ChatInputProps) {
   const [value, setValue] = useState('')
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showGifPanel, setShowGifPanel] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -94,6 +99,40 @@ export function ChatInput({
     }
   }
 
+  const handleEmojiSelect = useCallback((emoji: string) => {
+    const textarea = textareaRef.current
+    if (textarea) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const newValue = value.slice(0, start) + emoji + value.slice(end)
+      setValue(newValue)
+      // Set cursor position after inserted emoji
+      requestAnimationFrame(() => {
+        textarea.focus()
+        const pos = start + emoji.length
+        textarea.setSelectionRange(pos, pos)
+      })
+    } else {
+      setValue((v) => v + emoji)
+    }
+    setShowEmojiPicker(false)
+  }, [value])
+
+  const handleToggleEmoji = useCallback(() => {
+    setShowEmojiPicker((v) => !v)
+    setShowGifPanel(false)
+  }, [])
+
+  const handleToggleGif = useCallback(() => {
+    setShowGifPanel((v) => !v)
+    setShowEmojiPicker(false)
+  }, [])
+
+  const handleSelectGif = useCallback((url: string, meta: GifMeta) => {
+    onSend(url, 'gif', meta)
+    setShowGifPanel(false)
+  }, [onSend])
+
   return (
     <div className="chat-input">
       {replyTo && (
@@ -110,6 +149,22 @@ export function ChatInput({
         </div>
       )}
       <div className="chat-input-bar">
+        <button
+          className={['chat-input-icon-btn', showEmojiPicker && 'chat-input-icon-btn-active'].filter(Boolean).join(' ')}
+          onClick={handleToggleEmoji}
+          disabled={disabled}
+          title="Emoji"
+        >
+          ☺
+        </button>
+        <button
+          className={['chat-input-icon-btn', showGifPanel && 'chat-input-icon-btn-active'].filter(Boolean).join(' ')}
+          onClick={handleToggleGif}
+          disabled={disabled}
+          title="GIF"
+        >
+          GIF
+        </button>
         <textarea
           ref={textareaRef}
           className="chat-input-textarea"
@@ -128,6 +183,16 @@ export function ChatInput({
           {editingMessage ? 'Save' : 'Send'}
         </NeonButton>
       </div>
+      <EmojiPickerPopup
+        isOpen={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        onSelect={handleEmojiSelect}
+      />
+      <GiphySearchPanel
+        isOpen={showGifPanel}
+        onClose={() => setShowGifPanel(false)}
+        onSelectGif={handleSelectGif}
+      />
     </div>
   )
 }
