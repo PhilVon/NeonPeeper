@@ -4,6 +4,7 @@ import {
   type NeonP2PMessage,
   PROTOCOL_VERSION,
   PROTOCOL_CONSTANTS,
+  ERROR_CODES,
   createMessage,
 } from '../types/protocol'
 import { usePeerStore } from '../store/peer-store'
@@ -12,9 +13,11 @@ import { useChatStore } from '../store/chat-store'
 import { useMediaStore } from '../store/media-store'
 import { getConnectionManager } from './ConnectionManager'
 import { getMediaManager } from './MediaManager'
+import { getCryptoManager } from './CryptoManager'
 import { getSignalingClient } from './SignalingClient'
 import { getPersistenceManager } from './PersistenceManager'
 import { generateDirectChatId } from '../types/chat'
+import { toast } from '../store/toast-store'
 import type { ChatMessage } from '../types/chat'
 
 type MessageHandler<T extends MessageType = MessageType> = (
@@ -68,18 +71,22 @@ export class MessageRouter {
   }
 
   // Called when raw data arrives from a DataChannel
-  routeMessage(peerId: string, rawData: string): void {
+  async routeMessage(peerId: string, rawData: string): Promise<void> {
     let message: AnyNeonP2PMessage
     try {
       message = JSON.parse(rawData)
     } catch {
       console.warn('[MessageRouter] Invalid JSON from', peerId)
+      this.sendError(peerId, ERROR_CODES.INVALID_FORMAT, 'Invalid JSON')
       return
     }
 
     // Validate version
     if (message.version !== PROTOCOL_VERSION) {
       console.warn('[MessageRouter] Version mismatch:', message.version)
+      if (message.type !== 'ERROR') {
+        this.sendError(peerId, ERROR_CODES.UNSUPPORTED_VERSION, `Unsupported version: ${message.version}`, message.id)
+      }
       return
     }
 
@@ -98,6 +105,29 @@ export class MessageRouter {
       }
     }
 
+    // Verify signature if present
+    if (message.signature) {
+      const peer = usePeerStore.getState().peers.get(message.from)
+      if (peer?.publicKey) {
+        try {
+          const valid = await getCryptoManager().verifySignature(
+            message as unknown as Record<string, unknown>,
+            message.signature,
+            peer.publicKey
+          )
+          if (!valid) {
+            console.warn('[MessageRouter] Invalid signature from', peerId)
+            if (message.type !== 'ERROR') {
+              this.sendError(peerId, ERROR_CODES.INVALID_SIGNATURE, 'Invalid message signature', message.id)
+            }
+            return
+          }
+        } catch {
+          // Verification failed — allow unsigned for backward compat
+        }
+      }
+    }
+
     // Dispatch to handlers
     const handlers = this.handlers.get(message.type)
     if (handlers) {
@@ -110,7 +140,23 @@ export class MessageRouter {
       }
     } else {
       console.warn('[MessageRouter] No handler for type:', message.type)
+      if (message.type !== 'ERROR') {
+        this.sendError(peerId, ERROR_CODES.UNKNOWN_TYPE, `Unknown message type: ${message.type}`, message.id)
+      }
     }
+  }
+
+  // --- Error sending ---
+
+  private sendError(peerId: string, code: number, errorMessage: string, relatedMessageId?: string): void {
+    const localId = usePeerStore.getState().localProfile?.id
+    if (!localId) return
+    const msg = createMessage('ERROR', localId, peerId, {
+      code,
+      message: errorMessage,
+      ...(relatedMessageId ? { relatedMessageId } : {}),
+    })
+    getConnectionManager().sendMessage(peerId, msg)
   }
 
   // --- Built-in handlers ---
@@ -129,6 +175,14 @@ export class MessageRouter {
       firstSeen: now,
       lastSeen: now,
     })
+
+    // TOFU key pinning
+    if (payload.publicKey) {
+      const { changed } = getCryptoManager().trustPeer(message.from, payload.publicKey)
+      if (changed) {
+        toast.warning(`Identity key changed for ${payload.displayName}! Possible impersonation.`)
+      }
+    }
 
     // Send HELLO_ACK
     const localProfile = peerStore.localProfile
@@ -159,6 +213,14 @@ export class MessageRouter {
       lastSeen: now,
     })
 
+    // TOFU key pinning
+    if (payload.publicKey) {
+      const { changed } = getCryptoManager().trustPeer(message.from, payload.publicKey)
+      if (changed) {
+        toast.warning(`Identity key changed for ${payload.displayName}! Possible impersonation.`)
+      }
+    }
+
     useConnectionStore.getState().setConnectionState(peerId, 'connected')
     useConnectionStore.getState().resetReconnectAttempts(peerId)
   }
@@ -183,6 +245,7 @@ export class MessageRouter {
 
   private handleDisconnect(message: NeonP2PMessage<'DISCONNECT'>, peerId: string): void {
     console.log(`[MessageRouter] Peer ${message.from} disconnected: ${message.payload.reason} (${message.payload.code})`)
+    getConnectionManager().markUserInitiated(peerId)
     getConnectionManager().closeConnection(peerId)
   }
 
@@ -299,27 +362,12 @@ export class MessageRouter {
     const pc = cm.getPeerConnection(peerId)
     if (!pc) return
 
-    const mm = getMediaManager()
-    const mediaState = useMediaStore.getState()
-    const isScreenRenegotiation = message.payload.mediaType === 'screen' && mediaState.inCall
-
-    // Enter call mode on receiver side
-    useMediaStore.getState().setInCall(true, peerId)
+    const chatId = message.chatId
+    if (chatId) {
+      useMediaStore.getState().addChatVideoParticipant(chatId, message.from)
+    }
 
     pc.setRemoteDescription({ type: 'offer', sdp: message.payload.sdp })
-      .then(() => {
-        if (isScreenRenegotiation) {
-          // Screen share renegotiation — camera tracks already on connection, skip startup
-          return
-        }
-        // Try to start camera for bidirectional video
-        return mm.startCamera()
-          .then(() => mm.addTracksToConnection(peerId))
-          .catch((camErr) => {
-            // Camera unavailable — proceed without our video
-            console.warn('[MessageRouter] Camera unavailable, answering without video:', camErr)
-          })
-      })
       .then(() => pc.createAnswer())
       .then((answer) => {
         pc.setLocalDescription(answer)
@@ -348,32 +396,48 @@ export class MessageRouter {
 
   private handleMediaStart(message: NeonP2PMessage<'MEDIA_START'>, _peerId: string): void {
     console.log(`[MessageRouter] Peer ${message.from} started ${message.payload.mediaType}`)
+    useMediaStore.getState().addPeerMediaType(message.from, message.payload.mediaType)
   }
 
   private handleMediaStop(message: NeonP2PMessage<'MEDIA_STOP'>, peerId: string): void {
     console.log(`[MessageRouter] Peer ${message.from} stopped ${message.payload.mediaType}`)
+    useMediaStore.getState().removePeerMediaType(message.from, message.payload.mediaType)
 
     if (message.payload.mediaType === 'screen') {
-      // Remote peer stopped screen sharing — only remove screen stream, keep call alive
       useMediaStore.getState().removeRemoteScreenStream(peerId)
+      // Only remove from chat participants if peer has no other active media
+      const remaining = useMediaStore.getState().peerMediaTypes[message.from] ?? []
+      if (!remaining.includes('camera') && !remaining.includes('audio')) {
+        const chatId = message.chatId
+        if (chatId) {
+          useMediaStore.getState().removeChatVideoParticipant(chatId, message.from)
+        }
+      }
       return
     }
 
     useMediaStore.getState().removeRemoteStream(peerId)
 
-    // If this was our call peer, end the call locally
-    const mediaState = useMediaStore.getState()
-    if (mediaState.callPeerId === peerId) {
-      const mm = getMediaManager()
-      mm.removeTracksFromConnection(peerId)
-      mm.stopCamera()
-      mediaState.clearAllStreams()
+    const chatId = message.chatId
+    if (chatId) {
+      useMediaStore.getState().removeChatVideoParticipant(chatId, message.from)
     }
   }
 
-  private handleMediaQuality(message: NeonP2PMessage<'MEDIA_QUALITY'>, _peerId: string): void {
-    if (message.payload.direction === 'request') {
-      console.log(`[MessageRouter] Peer ${message.from} requesting quality: ${message.payload.quality}`)
+  private handleMediaQuality(message: NeonP2PMessage<'MEDIA_QUALITY'>, peerId: string): void {
+    const { direction, quality } = message.payload
+    if (direction === 'request') {
+      console.log(`[MessageRouter] Peer ${message.from} requesting quality: ${quality}`)
+      getMediaManager().applyQualityPreset(quality, peerId)
+      // Acknowledge with a notify
+      const localId = usePeerStore.getState().localProfile?.id ?? ''
+      const ack = createMessage('MEDIA_QUALITY', localId, message.from, {
+        direction: 'notify',
+        quality,
+      })
+      getConnectionManager().sendMessage(peerId, ack)
+    } else if (direction === 'notify') {
+      useMediaStore.getState().setCurrentQuality(quality)
     }
   }
 
@@ -539,7 +603,7 @@ export class MessageRouter {
   }
 
   private handleStatusUpdate(message: NeonP2PMessage<'STATUS_UPDATE'>, _peerId: string): void {
-    usePeerStore.getState().setPeerStatus(message.from, Date.now())
+    usePeerStore.getState().setPeerStatus(message.from, Date.now(), message.payload.status)
   }
 }
 

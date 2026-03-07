@@ -112,19 +112,6 @@
   color: var(--text-secondary);
 }
 
-/* Call overlay */
-.app-call-overlay {
-  position: fixed;
-  top: 32px; /* Below title bar */
-  left: 0;
-  right: 0;
-  bottom: 24px; /* Above status bar */
-  z-index: var(--z-modal);
-  background: var(--bg-darkest);
-  display: flex;
-  flex-direction: column;
-}
-
 .app-settings-code {
   font-size: var(--font-size-xs);
   color: var(--neon-cyan);

@@ -7,7 +7,7 @@ export function useMediaStream() {
   const audioMuted = useMediaStore((s) => s.audioMuted)
   const videoEnabled = useMediaStore((s) => s.videoEnabled)
   const remoteStreams = useMediaStore((s) => s.remoteStreams)
-  const inCall = useMediaStore((s) => s.inCall)
+  const isSharing = useMediaStore((s) => s.videoSharingChatIds.size > 0)
   const mm = getMediaManager()
 
   const startCamera = useCallback(async () => {
@@ -31,7 +31,7 @@ export function useMediaStream() {
     audioMuted,
     videoEnabled,
     remoteStreams,
-    inCall,
+    isSharing,
     startCamera,
     stopCamera,
     toggleAudio,

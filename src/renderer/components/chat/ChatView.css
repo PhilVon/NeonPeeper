@@ -10,6 +10,12 @@
   padding: var(--spacing-sm) 0;
 }
 
+.chat-view-chat-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 .chat-view-empty {
   display: flex;
   align-items: center;

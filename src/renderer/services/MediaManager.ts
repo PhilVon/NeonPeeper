@@ -9,6 +9,20 @@ import { getConnectionManager } from './ConnectionManager'
 export class MediaManager {
   private localStream: MediaStream | null = null
 
+  async startMicOnly(): Promise<MediaStream> {
+    const settings = useSettingsStore.getState()
+    this.localStream = await navigator.mediaDevices.getUserMedia({
+      video: false,
+      audio: {
+        ...(settings.micDeviceId ? { deviceId: { exact: settings.micDeviceId } } : {}),
+        echoCancellation: true,
+        noiseSuppression: true,
+      },
+    })
+    useMediaStore.getState().setLocalCameraStream(this.localStream)
+    return this.localStream
+  }
+
   async startCamera(quality?: QualityPreset): Promise<MediaStream> {
     const preset = quality || useSettingsStore.getState().qualityPreset
     const config = preset !== 'adaptive' ? QUALITY_PRESETS[preset] : QUALITY_PRESETS.high
@@ -51,9 +65,42 @@ export class MediaManager {
     return newMuted
   }
 
-  toggleVideo(): boolean {
+  async toggleVideo(): Promise<boolean> {
     if (!this.localStream) return false
     const videoTracks = this.localStream.getVideoTracks()
+
+    if (videoTracks.length === 0) {
+      // Audio-only mode: acquire camera and add track to stream + connections
+      const preset = useSettingsStore.getState().qualityPreset
+      const config = preset !== 'adaptive' ? QUALITY_PRESETS[preset] : QUALITY_PRESETS.high
+      const settings = useSettingsStore.getState()
+
+      const camStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: config.width },
+          height: { ideal: config.height },
+          frameRate: { ideal: config.frameRate },
+          ...(settings.cameraDeviceId ? { deviceId: { exact: settings.cameraDeviceId } } : {}),
+        },
+      })
+
+      const newTrack = camStream.getVideoTracks()[0]
+      this.localStream.addTrack(newTrack)
+
+      const cm = getConnectionManager()
+      for (const peerId of cm.getConnectedPeerIds()) {
+        const pc = cm.getPeerConnection(peerId)
+        if (pc) {
+          pc.addTrack(newTrack, this.localStream)
+        }
+      }
+
+      useMediaStore.getState().setVideoEnabled(true)
+      useMediaStore.getState().setLocalCameraStream(this.localStream)
+      return true
+    }
+
+    // Normal toggle: enable/disable existing video tracks
     const newEnabled = !useMediaStore.getState().videoEnabled
     videoTracks.forEach((t) => (t.enabled = newEnabled))
     useMediaStore.getState().setVideoEnabled(newEnabled)
@@ -156,18 +203,23 @@ export class MediaManager {
     const pc = getConnectionManager().getPeerConnection(peerId)
     if (!pc) return
 
+    const existingSenderTracks = pc.getSenders().map((s) => s.track).filter(Boolean)
     for (const track of this.localStream.getTracks()) {
-      pc.addTrack(track, this.localStream)
+      if (!existingSenderTracks.includes(track)) {
+        pc.addTrack(track, this.localStream)
+      }
     }
+
+    this.applyCodecPreference(pc)
   }
 
   removeTracksFromConnection(peerId: string): void {
     const pc = getConnectionManager().getPeerConnection(peerId)
     if (!pc) return
 
-    const senders = pc.getSenders()
-    for (const sender of senders) {
-      if (sender.track) {
+    const cameraTracks = this.localStream?.getTracks() ?? []
+    for (const sender of pc.getSenders()) {
+      if (sender.track && cameraTracks.includes(sender.track)) {
         pc.removeTrack(sender)
       }
     }
@@ -177,7 +229,7 @@ export class MediaManager {
 
   private screenStream: MediaStream | null = null
 
-  async startScreenShare(sourceId: string): Promise<MediaStream> {
+  async startScreenShare(sourceId: string, chatId?: string): Promise<MediaStream> {
     // Use Electron's desktopCapturer source as a constraint
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
@@ -211,11 +263,17 @@ export class MediaManager {
             const msg = createMessage('MEDIA_OFFER', localId, peerId, {
               sdp: offer.sdp!,
               mediaType: 'screen',
-            })
+            }, chatId)
             cm.sendMessage(peerId, msg)
           })
           .catch((err) => console.error('[MediaManager] Screen share renegotiation error:', err))
       }
+    }
+
+    // Apply codec preference to connections with screen tracks
+    for (const peerId of cm.getConnectedPeerIds()) {
+      const pc = cm.getPeerConnection(peerId)
+      if (pc) this.applyCodecPreference(pc)
     }
 
     // Handle stream ending (user clicks "Stop sharing" in OS UI)
@@ -226,7 +284,7 @@ export class MediaManager {
     return stream
   }
 
-  stopScreenShare(): void {
+  stopScreenShare(chatId?: string): void {
     if (this.screenStream) {
       // Remove tracks from peer connections, notify, and renegotiate
       const cm = getConnectionManager()
@@ -247,7 +305,7 @@ export class MediaManager {
           const stopMsg = createMessage('MEDIA_STOP', localId, peerId, {
             mediaType: 'screen',
             trackId: '',
-          })
+          }, chatId)
           cm.sendMessage(peerId, stopMsg)
 
           // Renegotiate so remote SDP reflects removed track
@@ -257,7 +315,7 @@ export class MediaManager {
               const msg = createMessage('MEDIA_OFFER', localId, peerId, {
                 sdp: offer.sdp!,
                 mediaType: 'screen',
-              })
+              }, chatId)
               cm.sendMessage(peerId, msg)
             })
             .catch((err) => console.error('[MediaManager] Screen stop renegotiation error:', err))
@@ -267,6 +325,30 @@ export class MediaManager {
       this.screenStream.getTracks().forEach((t) => t.stop())
       this.screenStream = null
       useMediaStore.getState().setLocalScreenStream(null)
+    }
+  }
+
+  private applyCodecPreference(pc: RTCPeerConnection): void {
+    const preferred = useSettingsStore.getState().preferredCodec
+    if (preferred === 'auto') return
+
+    const capabilities = RTCRtpReceiver.getCapabilities?.('video')
+    if (!capabilities) return
+
+    const sorted = [...capabilities.codecs].sort((a, b) => {
+      const aMatch = a.mimeType.toLowerCase().includes(preferred) ? -1 : 0
+      const bMatch = b.mimeType.toLowerCase().includes(preferred) ? -1 : 0
+      return aMatch - bMatch
+    })
+
+    for (const transceiver of pc.getTransceivers()) {
+      if (transceiver.receiver.track?.kind === 'video' || transceiver.sender.track?.kind === 'video') {
+        try {
+          transceiver.setCodecPreferences(sorted)
+        } catch {
+          // setCodecPreferences not supported or invalid
+        }
+      }
     }
   }
 

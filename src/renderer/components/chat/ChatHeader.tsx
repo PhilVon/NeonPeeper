@@ -7,11 +7,12 @@ import './ChatHeader.css'
 
 interface ChatHeaderProps {
   chat: Chat
-  onCallClick?: () => void
-  onVideoClick?: () => void
+  onToggleVideo?: () => void
+  onToggleAudio?: () => void
+  isVideoActive?: boolean
 }
 
-export function ChatHeader({ chat, onCallClick, onVideoClick }: ChatHeaderProps) {
+export function ChatHeader({ chat, onToggleVideo, onToggleAudio, isVideoActive = false }: ChatHeaderProps) {
   const peers = usePeerStore((s) => s.peers)
   const connections = useConnectionStore((s) => s.connections)
   const localId = usePeerStore.getState().localProfile?.id
@@ -49,22 +50,22 @@ export function ChatHeader({ chat, onCallClick, onVideoClick }: ChatHeaderProps)
       </div>
       <div className="chat-header-actions">
         <NeonButton
-          variant="secondary"
+          variant={isVideoActive ? 'danger' : 'secondary'}
           size="small"
           disabled={!isOnline}
-          onClick={onCallClick}
-          title="Voice call"
+          onClick={onToggleAudio}
+          title={isVideoActive ? 'Leave call' : 'Voice call'}
         >
-          Call
+          {isVideoActive ? 'Leave' : 'Voice'}
         </NeonButton>
         <NeonButton
-          variant="secondary"
+          variant={isVideoActive ? 'danger' : 'secondary'}
           size="small"
           disabled={!isOnline}
-          onClick={onVideoClick}
-          title="Video call"
+          onClick={onToggleVideo}
+          title={isVideoActive ? 'Stop video' : 'Share video'}
         >
-          Video
+          {isVideoActive ? 'Stop Video' : 'Video'}
         </NeonButton>
       </div>
     </div>

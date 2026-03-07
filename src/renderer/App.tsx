@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { MainLayout } from './components/layout/MainLayout'
 import { DemoSuite } from './components/demo/DemoSuite'
@@ -12,9 +12,6 @@ import { PeerList } from './components/peers/PeerList'
 import { ChatList } from './components/chat/ChatList'
 import { ChatView } from './components/chat/ChatView'
 import { CreateGroupChat } from './components/chat/CreateGroupChat'
-import { VideoGrid } from './components/media/VideoGrid'
-import { MediaControls } from './components/media/MediaControls'
-import { ScreenSourcePicker } from './components/media/ScreenSourcePicker'
 import { MediaSettings } from './components/settings/MediaSettings'
 import { QualitySettings } from './components/settings/QualitySettings'
 import { NetworkSettings } from './components/settings/NetworkSettings'
@@ -24,13 +21,17 @@ import { usePeerStore } from './store/peer-store'
 import { useChatStore } from './store/chat-store'
 import { useSettingsStore } from './store/settings-store'
 import { useMediaStore } from './store/media-store'
+import { useConnectionStore } from './store/connection-store'
 import { getConnectionManager } from './services/ConnectionManager'
 import { getMessageRouter } from './services/MessageRouter'
 import { getPersistenceManager } from './services/PersistenceManager'
 import { getSignalingClient } from './services/SignalingClient'
 import { getMediaManager } from './services/MediaManager'
+import { getCryptoManager } from './services/CryptoManager'
+import { getPerformanceMonitor } from './services/PerformanceMonitor'
 import { generateDirectChatId } from './types/chat'
-import { createMessage } from './types/protocol'
+import { DEFAULT_RECONNECTION_CONFIG } from './types/peer'
+import type { QualityPreset } from './types/protocol'
 import './App.css'
 
 type AppTab = 'chats' | 'peers' | 'demo' | 'settings'
@@ -46,13 +47,12 @@ export function App() {
   const crtEnabled = useUIStore((state) => state.crtEnabled)
   const [activeTab, setActiveTab] = useState<AppTab>('peers')
   const [showPeerInvite, setShowPeerInvite] = useState(false)
-  const [showScreenPicker, setShowScreenPicker] = useState(false)
   const [showCreateGroup, setShowCreateGroup] = useState(false)
   const localProfile = usePeerStore((s) => s.localProfile)
   const chats = useChatStore((s) => s.chats)
   const activeChatId = useChatStore((s) => s.activeChatId)
   const activeChat = activeChatId ? chats.get(activeChatId) : undefined
-  const inCall = useMediaStore((s) => s.inCall)
+  const isAnyVideoSharing = useMediaStore((s) => s.videoSharingChatIds.size > 0)
 
   // Settings
   const displayName = useSettingsStore((s) => s.displayName)
@@ -63,12 +63,21 @@ export function App() {
   useEffect(() => {
     if (!localProfile) {
       const id = uuidv4().replace(/-/g, '').slice(0, 32)
-      usePeerStore.getState().setLocalProfile({
+      const profile = {
         id,
         displayName: useSettingsStore.getState().displayName,
         publicKey: '',
         capabilities: ['text', 'media', 'screen-share'],
-      })
+      }
+      usePeerStore.getState().setLocalProfile(profile)
+
+      // Generate crypto keypair and update publicKey
+      getCryptoManager().generateKeyPair()
+        .then(() => getCryptoManager().getPublicKeyHex())
+        .then((publicKey) => {
+          usePeerStore.getState().setLocalProfile({ ...profile, publicKey })
+        })
+        .catch((err) => console.error('Failed to generate keypair:', err))
     }
   }, [localProfile])
 
@@ -185,6 +194,104 @@ export function App() {
     }
   }, [])
 
+  // Adaptive bitrate wiring (Feature 8)
+  const qualityPreset = useSettingsStore((s) => s.qualityPreset)
+  const qualityLadderRef = useRef<Record<string, number>>({})
+
+  useEffect(() => {
+    if (!isAnyVideoSharing || qualityPreset !== 'adaptive') return
+
+    const QUALITY_LADDER: QualityPreset[] = ['low', 'medium', 'high', 'ultra']
+    const pm = getPerformanceMonitor()
+    pm.start(2000)
+
+    const unsubscribe = pm.onStats((stats) => {
+      const mm = getMediaManager()
+      for (const [peerId, peerStats] of stats) {
+        const currentIdx = qualityLadderRef.current[peerId] ?? 2 // default to 'high'
+
+        if (pm.shouldDowngrade(peerId, peerStats.packetLoss, peerStats.rttMs)) {
+          const newIdx = Math.max(0, currentIdx - 1)
+          if (newIdx !== currentIdx) {
+            qualityLadderRef.current[peerId] = newIdx
+            mm.applyQualityPreset(QUALITY_LADDER[newIdx], peerId)
+          }
+        } else if (pm.shouldUpgrade(peerId, peerStats.packetLoss, peerStats.rttMs)) {
+          const newIdx = Math.min(QUALITY_LADDER.length - 1, currentIdx + 1)
+          if (newIdx !== currentIdx) {
+            qualityLadderRef.current[peerId] = newIdx
+            mm.applyQualityPreset(QUALITY_LADDER[newIdx], peerId)
+          }
+        }
+      }
+    })
+
+    return () => {
+      unsubscribe()
+      pm.stop()
+      qualityLadderRef.current = {}
+    }
+  }, [isAnyVideoSharing, qualityPreset])
+
+  // Auto-reconnection (Feature 10)
+  const reconnectTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
+  useEffect(() => {
+    const cm = getConnectionManager()
+
+    const handleDisconnect = (peerId: unknown) => {
+      const pid = peerId as string
+
+      // Clean up video state for disconnected peer
+      const mediaState = useMediaStore.getState()
+      for (const [chatId, participants] of mediaState.chatVideoParticipants) {
+        if (participants.has(pid)) {
+          mediaState.removeChatVideoParticipant(chatId, pid)
+        }
+      }
+      mediaState.removeRemoteStream(pid)
+
+      // Skip user-initiated disconnections
+      if (cm.wasUserInitiated(pid)) {
+        cm.clearUserInitiated(pid)
+        return
+      }
+
+      const connInfo = useConnectionStore.getState().getConnection(pid)
+      const attempts = connInfo?.reconnectAttempts ?? 0
+      const { maxAttempts, baseDelayMs, maxDelayMs, backoffMultiplier } = DEFAULT_RECONNECTION_CONFIG
+
+      if (attempts >= maxAttempts) {
+        useConnectionStore.getState().setConnectionState(pid, 'failed')
+        toast.error(`Connection to peer lost after ${maxAttempts} reconnection attempts`)
+        return
+      }
+
+      useConnectionStore.getState().setConnectionState(pid, 'reconnecting')
+      useConnectionStore.getState().incrementReconnectAttempts(pid)
+
+      const delay = Math.min(baseDelayMs * Math.pow(backoffMultiplier, attempts), maxDelayMs)
+      const timer = setTimeout(() => {
+        reconnectTimers.current.delete(pid)
+        const client = getSignalingClient()
+        if (client.getState() === 'connected') {
+          client.connectToPeer(pid)
+        }
+      }, delay)
+      reconnectTimers.current.set(pid, timer)
+    }
+
+    cm.on('peer-disconnected', handleDisconnect)
+
+    return () => {
+      cm.off('peer-disconnected', handleDisconnect)
+      for (const timer of reconnectTimers.current.values()) {
+        clearTimeout(timer)
+      }
+      reconnectTimers.current.clear()
+    }
+  }, [])
+
   const handleStartChat = useCallback((peerId: string) => {
     const localId = usePeerStore.getState().localProfile?.id
     if (!localId) return
@@ -231,82 +338,6 @@ export function App() {
     }
   }, [])
 
-  const handleStartCall = useCallback(async (peerId: string) => {
-    const mm = getMediaManager()
-    const cm = getConnectionManager()
-    const localId = usePeerStore.getState().localProfile?.id ?? ''
-
-    if (!cm.isConnected(peerId)) {
-      toast.error('Peer is not connected')
-      return
-    }
-
-    try {
-      await mm.startCamera()
-      mm.addTracksToConnection(peerId)
-      useMediaStore.getState().setInCall(true, peerId)
-
-      const pc = cm.getPeerConnection(peerId)
-      if (pc) {
-        const offer = await pc.createOffer()
-        await pc.setLocalDescription(offer)
-        const msg = createMessage('MEDIA_OFFER', localId, peerId, {
-          sdp: offer.sdp!,
-          mediaType: 'camera',
-        })
-        cm.sendMessage(peerId, msg)
-      }
-    } catch (err) {
-      console.error('Failed to start call:', err)
-      toast.error('Failed to start call. Check camera permissions.')
-      mm.stopCamera()
-      useMediaStore.getState().clearAllStreams()
-    }
-  }, [])
-
-  const handleEndCall = useCallback(() => {
-    const mm = getMediaManager()
-    const callPeerId = useMediaStore.getState().callPeerId
-    const localId = usePeerStore.getState().localProfile?.id ?? ''
-
-    if (callPeerId) {
-      mm.removeTracksFromConnection(callPeerId)
-      const msg = createMessage('MEDIA_STOP', localId, callPeerId, {
-        mediaType: 'camera',
-        trackId: '',
-      })
-      getConnectionManager().sendMessage(callPeerId, msg)
-    }
-
-    mm.stopCamera()
-    useMediaStore.getState().clearAllStreams()
-  }, [])
-
-  const handleToggleAudio = useCallback(() => {
-    getMediaManager().toggleAudio()
-  }, [])
-
-  const handleToggleVideo = useCallback(() => {
-    getMediaManager().toggleVideo()
-  }, [])
-
-  const handleToggleScreenShare = useCallback(() => {
-    const mm = getMediaManager()
-    if (useMediaStore.getState().localScreenStream) {
-      mm.stopScreenShare()
-    } else {
-      setShowScreenPicker(true)
-    }
-  }, [])
-
-  const handleSelectScreenSource = useCallback(async (sourceId: string) => {
-    try {
-      await getMediaManager().startScreenShare(sourceId)
-    } catch (err) {
-      console.error('Failed to start screen share:', err)
-    }
-  }, [])
-
   const renderContent = useCallback(() => {
     switch (activeTab) {
       case 'chats':
@@ -315,16 +346,6 @@ export function App() {
             <ChatView
               key={activeChat.id}
               chat={activeChat}
-              onCallClick={() => {
-                const localId = usePeerStore.getState().localProfile?.id
-                const otherMember = activeChat.members.find((m) => m !== localId)
-                if (otherMember) handleStartCall(otherMember)
-              }}
-              onVideoClick={() => {
-                const localId = usePeerStore.getState().localProfile?.id
-                const otherMember = activeChat.members.find((m) => m !== localId)
-                if (otherMember) handleStartCall(otherMember)
-              }}
             />
           )
         }
@@ -346,7 +367,7 @@ export function App() {
       case 'settings':
         return <SettingsPage />
     }
-  }, [activeTab, activeChat, handleStartChat, handleConnectPeer, handleStartCall])
+  }, [activeTab, activeChat, handleStartChat, handleConnectPeer])
 
   const renderSidebarContent = () => {
     if (activeTab === 'chats') {
@@ -369,24 +390,8 @@ export function App() {
       >
         {renderContent()}
       </MainLayout>
-      {inCall && (
-        <div className="app-call-overlay">
-          <VideoGrid />
-          <MediaControls
-            onToggleAudio={handleToggleAudio}
-            onToggleVideo={handleToggleVideo}
-            onToggleScreenShare={handleToggleScreenShare}
-            onEndCall={handleEndCall}
-          />
-        </div>
-      )}
       <ToastContainer />
       <PeerInvite isOpen={showPeerInvite} onClose={() => setShowPeerInvite(false)} />
-      <ScreenSourcePicker
-        isOpen={showScreenPicker}
-        onClose={() => setShowScreenPicker(false)}
-        onSelect={handleSelectScreenSource}
-      />
       <CreateGroupChat
         isOpen={showCreateGroup}
         onClose={() => setShowCreateGroup(false)}

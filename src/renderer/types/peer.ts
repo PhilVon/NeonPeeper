@@ -5,6 +5,7 @@ export interface PeerProfile {
   capabilities: string[]
   firstSeen: number
   lastSeen: number
+  status?: 'online' | 'busy' | 'idle'
 }
 
 export interface LocalProfile {

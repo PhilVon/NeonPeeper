@@ -7,6 +7,8 @@ import {
 } from '../types/protocol'
 import { useConnectionStore } from '../store/connection-store'
 import { usePeerStore } from '../store/peer-store'
+import { useSettingsStore } from '../store/settings-store'
+import { getCryptoManager } from './CryptoManager'
 import type { ConnectionState, ManualConnectionData } from '../types/peer'
 
 type EventCallback = (...args: unknown[]) => void
@@ -21,15 +23,11 @@ interface PeerConnection {
   peerIdRef: { current: string }
 }
 
-const STUN_SERVERS: RTCIceServer[] = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-]
-
 export class ConnectionManager {
   private connections = new Map<string, PeerConnection>()
   private eventListeners = new Map<string, Set<EventCallback>>()
   private _destroyed = false
+  private userInitiatedCloses = new Set<string>()
 
   get localPeerId(): string {
     return usePeerStore.getState().localProfile?.id ?? ''
@@ -52,10 +50,51 @@ export class ConnectionManager {
     this.eventListeners.get(event)?.forEach((cb) => cb(...args))
   }
 
+  // --- ICE server configuration ---
+
+  private getIceServers(): RTCIceServer[] {
+    const settings = useSettingsStore.getState()
+    const servers: RTCIceServer[] = []
+
+    if (settings.stunServers.length > 0) {
+      for (const url of settings.stunServers) {
+        if (url) servers.push({ urls: url })
+      }
+    }
+
+    if (!servers.length) {
+      servers.push({ urls: 'stun:stun.l.google.com:19302' })
+    }
+
+    if (settings.turnServer) {
+      servers.push({
+        urls: settings.turnServer,
+        username: settings.turnUsername,
+        credential: settings.turnPassword,
+      })
+    }
+
+    return servers
+  }
+
+  // --- User-initiated close tracking ---
+
+  markUserInitiated(peerId: string): void {
+    this.userInitiatedCloses.add(peerId)
+  }
+
+  wasUserInitiated(peerId: string): boolean {
+    return this.userInitiatedCloses.has(peerId)
+  }
+
+  clearUserInitiated(peerId: string): void {
+    this.userInitiatedCloses.delete(peerId)
+  }
+
   // --- RTCPeerConnection creation ---
 
   private createPeerConnection(peerIdRef: { current: string }): RTCPeerConnection {
-    const pc = new RTCPeerConnection({ iceServers: STUN_SERVERS })
+    const pc = new RTCPeerConnection({ iceServers: this.getIceServers() })
 
     pc.oniceconnectionstatechange = () => {
       useConnectionStore.getState().setIceState(peerIdRef.current, pc.iceConnectionState)
@@ -330,9 +369,19 @@ export class ConnectionManager {
 
   // --- Messaging ---
 
-  sendMessage<T extends MessageType>(peerId: string, message: NeonP2PMessage<T>): boolean {
+  async sendMessage<T extends MessageType>(peerId: string, message: NeonP2PMessage<T>): Promise<boolean> {
     const conn = this.connections.get(peerId)
     if (!conn?.controlChannel || conn.controlChannel.readyState !== 'open') return false
+
+    // Sign message if enabled (skip PING/PONG for performance)
+    if (useSettingsStore.getState().messageSigning && message.type !== 'PING' && message.type !== 'PONG') {
+      try {
+        const signature = await getCryptoManager().signMessage(message as unknown as Record<string, unknown>)
+        ;(message as NeonP2PMessage).signature = signature
+      } catch {
+        // Send unsigned on failure
+      }
+    }
 
     const data = JSON.stringify(message)
     if (data.length > PROTOCOL_CONSTANTS.MAX_MESSAGE_SIZE) return false
@@ -341,7 +390,7 @@ export class ConnectionManager {
     return true
   }
 
-  sendEphemeral<T extends MessageType>(peerId: string, message: NeonP2PMessage<T>): boolean {
+  async sendEphemeral<T extends MessageType>(peerId: string, message: NeonP2PMessage<T>): Promise<boolean> {
     const conn = this.connections.get(peerId)
     const channel = conn?.ephemeralChannel
     if (!channel || channel.readyState !== 'open') {
@@ -436,6 +485,8 @@ export class ConnectionManager {
   closeConnection(peerId: string): void {
     const conn = this.connections.get(peerId)
     if (!conn) return
+
+    this.userInitiatedCloses.add(peerId)
 
     // Send DISCONNECT if possible
     const profile = usePeerStore.getState().localProfile

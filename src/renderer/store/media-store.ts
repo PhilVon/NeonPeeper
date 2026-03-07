@@ -10,8 +10,9 @@ interface MediaState {
   remoteStreams: Map<string, RemoteStream>
   remoteScreenStreams: Map<string, RemoteStream>
   currentQuality: QualityPreset
-  inCall: boolean
-  callPeerId: string | null
+  videoSharingChatIds: Set<string>
+  chatVideoParticipants: Map<string, Set<string>>
+  peerMediaTypes: Record<string, string[]>
 
   setLocalCameraStream: (stream: MediaStream | null) => void
   setLocalScreenStream: (stream: MediaStream | null) => void
@@ -22,7 +23,13 @@ interface MediaState {
   addRemoteScreenStream: (peerId: string, stream: MediaStream) => void
   removeRemoteScreenStream: (peerId: string) => void
   setCurrentQuality: (quality: QualityPreset) => void
-  setInCall: (inCall: boolean, peerId?: string | null) => void
+  startSharingInChat: (chatId: string) => void
+  stopSharingInChat: (chatId: string) => void
+  addChatVideoParticipant: (chatId: string, peerId: string) => void
+  removeChatVideoParticipant: (chatId: string, peerId: string) => void
+  addPeerMediaType: (peerId: string, mediaType: string) => void
+  removePeerMediaType: (peerId: string, mediaType: string) => void
+  clearPeerMediaTypes: (peerId: string) => void
   clearAllStreams: () => void
 }
 
@@ -34,8 +41,9 @@ export const useMediaStore = create<MediaState>((set) => ({
   remoteStreams: new Map(),
   remoteScreenStreams: new Map(),
   currentQuality: 'high',
-  inCall: false,
-  callPeerId: null,
+  videoSharingChatIds: new Set(),
+  chatVideoParticipants: new Map(),
+  peerMediaTypes: {},
 
   setLocalCameraStream: (stream) => set({ localCameraStream: stream }),
   setLocalScreenStream: (stream) => set({ localScreenStream: stream }),
@@ -82,7 +90,65 @@ export const useMediaStore = create<MediaState>((set) => ({
 
   setCurrentQuality: (quality) => set({ currentQuality: quality }),
 
-  setInCall: (inCall, peerId = null) => set({ inCall, callPeerId: peerId }),
+  startSharingInChat: (chatId) =>
+    set((state) => {
+      const videoSharingChatIds = new Set(state.videoSharingChatIds)
+      videoSharingChatIds.add(chatId)
+      return { videoSharingChatIds }
+    }),
+
+  stopSharingInChat: (chatId) =>
+    set((state) => {
+      const videoSharingChatIds = new Set(state.videoSharingChatIds)
+      videoSharingChatIds.delete(chatId)
+      return { videoSharingChatIds }
+    }),
+
+  addChatVideoParticipant: (chatId, peerId) =>
+    set((state) => {
+      const chatVideoParticipants = new Map(state.chatVideoParticipants)
+      const participants = new Set<string>(chatVideoParticipants.get(chatId) ?? [])
+      participants.add(peerId)
+      chatVideoParticipants.set(chatId, participants)
+      return { chatVideoParticipants }
+    }),
+
+  removeChatVideoParticipant: (chatId, peerId) =>
+    set((state) => {
+      const chatVideoParticipants = new Map(state.chatVideoParticipants)
+      const participants = chatVideoParticipants.get(chatId)
+      if (participants) {
+        const updated = new Set(participants)
+        updated.delete(peerId)
+        if (updated.size === 0) {
+          chatVideoParticipants.delete(chatId)
+        } else {
+          chatVideoParticipants.set(chatId, updated)
+        }
+      }
+      return { chatVideoParticipants }
+    }),
+
+  addPeerMediaType: (peerId, mediaType) =>
+    set((state) => {
+      const existing = state.peerMediaTypes[peerId] ?? []
+      if (existing.includes(mediaType)) return state
+      return { peerMediaTypes: { ...state.peerMediaTypes, [peerId]: [...existing, mediaType] } }
+    }),
+
+  removePeerMediaType: (peerId, mediaType) =>
+    set((state) => {
+      const existing = state.peerMediaTypes[peerId]
+      if (!existing) return state
+      const filtered = existing.filter((t) => t !== mediaType)
+      return { peerMediaTypes: { ...state.peerMediaTypes, [peerId]: filtered } }
+    }),
+
+  clearPeerMediaTypes: (peerId) =>
+    set((state) => {
+      const { [peerId]: _, ...rest } = state.peerMediaTypes
+      return { peerMediaTypes: rest }
+    }),
 
   clearAllStreams: () =>
     set((state) => {
@@ -93,8 +159,9 @@ export const useMediaStore = create<MediaState>((set) => ({
         localScreenStream: null,
         remoteStreams: new Map(),
         remoteScreenStreams: new Map(),
-        inCall: false,
-        callPeerId: null,
+        videoSharingChatIds: new Set(),
+        chatVideoParticipants: new Map(),
+        peerMediaTypes: {},
       }
     }),
 }))

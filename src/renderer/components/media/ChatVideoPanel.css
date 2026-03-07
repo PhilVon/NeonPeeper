@@ -1,0 +1,89 @@
+.chat-video-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-darkest);
+}
+
+.chat-video-panel-tiles {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs);
+  overflow-y: auto;
+}
+
+.chat-video-panel-tiles .video-tile {
+  min-height: 120px;
+  flex: 1;
+}
+
+.chat-video-panel-tile-wrapper {
+  cursor: pointer;
+}
+
+.chat-video-panel-tile-wrapper:hover .video-tile {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 6px rgba(0, 255, 255, 0.2);
+}
+
+.chat-video-panel-focused {
+  flex: 1;
+  min-height: 0;
+  padding: var(--spacing-xs);
+  cursor: pointer;
+}
+
+.chat-video-panel-focused .video-tile {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+}
+
+.chat-video-panel-strip {
+  display: flex;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs);
+  overflow-x: auto;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border-color);
+  max-height: 100px;
+}
+
+.chat-video-panel-strip-item {
+  flex-shrink: 0;
+  width: 120px;
+  cursor: pointer;
+}
+
+.chat-video-panel-strip-item:hover .video-tile {
+  border-color: var(--neon-cyan);
+}
+
+/* Neon scrollbar for strip */
+.chat-video-panel-strip::-webkit-scrollbar {
+  height: 4px;
+}
+
+.chat-video-panel-strip::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 2px;
+}
+
+.chat-video-panel-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs);
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-dark);
+}
+
+.chat-video-panel-invite {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md);
+}

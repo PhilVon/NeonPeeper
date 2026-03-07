@@ -22,9 +22,9 @@ function formatTime(timestamp: number): string {
 
 function getStatusIcon(status: ChatMessageType['status']): string {
   switch (status) {
-    case 'sending': return '...'
-    case 'sent': return ''
-    case 'delivered': return '✓'
+    case 'sending': return '◷'
+    case 'sent': return '✓'
+    case 'delivered': return '✓✓'
     case 'read': return '✓✓'
   }
 }
@@ -87,7 +87,7 @@ export function ChatMessage({
             {message.edited && <span className="chat-message-edited">edited</span>}
             <span className="chat-message-time">{formatTime(message.timestamp)}</span>
             {isOwn && (
-              <span className="chat-message-status">{getStatusIcon(message.status)}</span>
+              <span className={`chat-message-status chat-message-status-${message.status}`}>{getStatusIcon(message.status)}</span>
             )}
           </span>
         </div>

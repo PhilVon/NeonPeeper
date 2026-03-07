@@ -22,7 +22,7 @@ export function PeerCard({ peer, onChat, onConnect }: PeerCardProps) {
   const isConnecting = connection?.connectionState === 'connecting' || connection?.connectionState === 'signaling'
 
   const status: 'online' | 'offline' | 'busy' | 'idle' = isConnected
-    ? 'online'
+    ? (peer.status ?? 'online')
     : isConnecting
     ? 'busy'
     : 'offline'

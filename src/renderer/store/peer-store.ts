@@ -7,7 +7,7 @@ interface PeerState {
 
   setLocalProfile: (profile: LocalProfile) => void
   upsertPeer: (peer: PeerProfile) => void
-  setPeerStatus: (peerId: string, lastSeen: number) => void
+  setPeerStatus: (peerId: string, lastSeen: number, status?: 'online' | 'busy' | 'idle') => void
   removePeer: (peerId: string) => void
   getOnlinePeers: () => PeerProfile[]
 }
@@ -27,12 +27,12 @@ export const usePeerStore = create<PeerState>((set, get) => ({
       return { peers }
     }),
 
-  setPeerStatus: (peerId, lastSeen) =>
+  setPeerStatus: (peerId, lastSeen, status?) =>
     set((state) => {
       const peers = new Map(state.peers)
       const existing = peers.get(peerId)
       if (existing) {
-        peers.set(peerId, { ...existing, lastSeen })
+        peers.set(peerId, { ...existing, lastSeen, ...(status !== undefined ? { status } : {}) })
       }
       return { peers }
     }),

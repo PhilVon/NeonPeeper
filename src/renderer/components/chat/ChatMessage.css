@@ -71,6 +71,15 @@
 
 .chat-message-status {
   font-size: 10px;
+}
+
+.chat-message-status-sending,
+.chat-message-status-sent,
+.chat-message-status-delivered {
+  color: var(--text-muted);
+}
+
+.chat-message-status-read {
   color: var(--neon-cyan);
 }
 
