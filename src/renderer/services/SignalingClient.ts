@@ -19,6 +19,7 @@ export class SignalingClient {
   private maxReconnectAttempts = 10
   private eventListeners = new Map<string, Set<EventCallback>>()
   private discoveredPeers: DiscoveredPeer[] = []
+  private joinedRooms = new Set<string>()
   private _destroyed = false
 
   on(event: string, callback: EventCallback): void {
@@ -69,6 +70,9 @@ export class SignalingClient {
           displayName: profile.displayName,
         })
       }
+
+      // Notify listeners that we're connected and registered
+      this.emit('connected-and-registered')
     }
 
     this.ws.onmessage = (event) => {
@@ -102,11 +106,26 @@ export class SignalingClient {
       this.ws.close()
       this.ws = null
     }
+    this.joinedRooms.clear()
     this.setState('disconnected')
   }
 
   discover(): void {
     this.send({ type: 'discover' })
+  }
+
+  joinRoom(roomId: string): void {
+    this.send({ type: 'join-room', roomId })
+    this.joinedRooms.add(roomId)
+  }
+
+  leaveRoom(roomId: string): void {
+    this.send({ type: 'leave-room', roomId })
+    this.joinedRooms.delete(roomId)
+  }
+
+  getJoinedRooms(): ReadonlySet<string> {
+    return new Set(this.joinedRooms)
   }
 
   sendSignal(msg: { type: string; to: string; sdp?: string; candidate?: RTCIceCandidateInit }): void {
@@ -179,22 +198,32 @@ export class SignalingClient {
       case 'peer-joined': {
         const peerId = msg.peerId as string
         const displayName = msg.displayName as string
-        usePeerStore.getState().upsertPeer({
-          id: peerId,
-          displayName,
-          publicKey: '',
-          capabilities: [],
-          firstSeen: Date.now(),
-          lastSeen: Date.now(),
-        })
-        this.emit('peer-joined', peerId, displayName)
+        if (msg.roomId) {
+          // Room-scoped event — don't update global peer store
+          this.emit('room-peer-joined', msg.roomId, peerId, displayName)
+        } else {
+          usePeerStore.getState().upsertPeer({
+            id: peerId,
+            displayName,
+            publicKey: '',
+            capabilities: [],
+            firstSeen: Date.now(),
+            lastSeen: Date.now(),
+          })
+          this.emit('peer-joined', peerId, displayName)
+        }
         break
       }
 
       case 'peer-left': {
         const peerId = msg.peerId as string
-        usePeerStore.getState().removePeer(peerId)
-        this.emit('peer-left', peerId)
+        if (msg.roomId) {
+          // Room-scoped event — don't remove from global peer store
+          this.emit('room-peer-left', msg.roomId, peerId)
+        } else {
+          usePeerStore.getState().removePeer(peerId)
+          this.emit('peer-left', peerId)
+        }
         break
       }
 

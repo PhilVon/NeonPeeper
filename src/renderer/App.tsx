@@ -153,6 +153,38 @@ export function App() {
     }
   }, [autoConnect, signalingUrl, localProfile])
 
+  // Signaling room event wiring — rejoin rooms on reconnect, crash detection
+  useEffect(() => {
+    const client = getSignalingClient()
+
+    // Rejoin rooms for all active group chats on (re)connect
+    const handleRegistered = () => {
+      const allChats = useChatStore.getState().chats
+      for (const [chatId, chat] of allChats) {
+        if (chat.type === 'group' && chat.state === 'active') {
+          client.joinRoom(chatId)
+        }
+      }
+    }
+
+    // Crash detection: peer left room without sending CHAT_LEAVE
+    const handleRoomPeerLeft = (roomId: unknown, peerId: unknown) => {
+      const chatId = roomId as string
+      const chat = useChatStore.getState().chats.get(chatId)
+      if (!chat || chat.type !== 'group') return
+      // No membership change — peer crashed, didn't voluntarily leave
+      console.log(`[App] Peer ${peerId} disconnected from group ${chat.name || chatId}`)
+    }
+
+    client.on('connected-and-registered', handleRegistered)
+    client.on('room-peer-left', handleRoomPeerLeft)
+
+    return () => {
+      client.off('connected-and-registered', handleRegistered)
+      client.off('room-peer-left', handleRoomPeerLeft)
+    }
+  }, [])
+
   const handleStartChat = useCallback((peerId: string) => {
     const localId = usePeerStore.getState().localProfile?.id
     if (!localId) return

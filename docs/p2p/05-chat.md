@@ -659,4 +659,48 @@ function handleChatLeave(msg: NeonP2PMessage<ChatLeavePayload>): void {
 
 ---
 
+## Signaling Room Coordination
+
+Group chats use signaling server rooms for online member discovery and crash detection. Direct chats never use rooms.
+
+### When Rooms Are Used
+
+Only **group chats** (`type: 'group'`) interact with signaling rooms. The `roomId` equals the `chatId`. Direct chats operate entirely over their single RTCPeerConnection.
+
+### Room Join Triggers
+
+| Trigger | Location |
+|---------|----------|
+| User creates a group chat | `CreateGroupChat.tsx` — after sending `CHAT_CREATE` to peers |
+| `CHAT_CREATE` received from another peer | `MessageRouter.handleChatCreate` — after upserting chat |
+| `CHAT_INVITE` received | `MessageRouter.handleChatInvite` — after upserting chat |
+| Signaling server reconnect | `App.tsx` — on `connected-and-registered` event, rejoins all active group rooms |
+
+### Room Leave Triggers
+
+| Trigger | Location |
+|---------|----------|
+| `CHAT_LEAVE` for local peer | `MessageRouter.handleChatLeave` — when `peerId === localId` |
+| Signaling disconnect | `SignalingClient.disconnect()` — clears `joinedRooms` set |
+
+### Crash Detection Flow
+
+```
+1. Peer crashes (app killed, network drops)
+2. Signaling server heartbeat times out (~40s)
+3. Server broadcasts peer-left with roomId to remaining room members
+4. Client receives room-peer-left event
+5. UI logs disconnect — NO membership change (peer didn't voluntarily leave)
+6. Crashed peer restarts app → reconnects to signaling → rejoins rooms
+7. Peer sends CHAT_SYNC to catch up on missed messages
+```
+
+The key distinction: **`peer-left` with `roomId`** means crash/disconnect (transient), while **`CHAT_LEAVE`** means voluntary departure (permanent membership change).
+
+### Signaling Unavailable
+
+When the signaling server is unreachable, all room operations (`joinRoom`, `leaveRoom`) silently no-op because `send()` checks `ws.readyState === WebSocket.OPEN`. Chat still works fully over existing DataChannel connections — only room-based crash detection is lost.
+
+---
+
 *Previous: [Signaling Server ←](./04-signaling-server.md) · Next: [Media →](./06-media.md)*
