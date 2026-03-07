@@ -12,6 +12,7 @@ import { useChatStore } from '../store/chat-store'
 import { useMediaStore } from '../store/media-store'
 import { getConnectionManager } from './ConnectionManager'
 import { getMediaManager } from './MediaManager'
+import { getSignalingClient } from './SignalingClient'
 import { getPersistenceManager } from './PersistenceManager'
 import { generateDirectChatId } from '../types/chat'
 import type { ChatMessage } from '../types/chat'
@@ -407,6 +408,12 @@ export class MessageRouter {
         unreadCount: 0,
         createdAt: message.timestamp,
       }).catch(() => {})
+
+      // Join signaling room for group chats
+      if (type === 'group') {
+        const sc = getSignalingClient()
+        if (sc.getState() === 'connected') sc.joinRoom(chatId)
+      }
     }
   }
 
@@ -428,6 +435,10 @@ export class MessageRouter {
         unreadCount: 0,
         createdAt: message.timestamp,
       })
+
+      // Join signaling room for group discovery
+      const sc = getSignalingClient()
+      if (sc.getState() === 'connected') sc.joinRoom(chatId)
 
       // Send CHAT_JOIN back to all members
       const cm = getConnectionManager()
@@ -476,6 +487,13 @@ export class MessageRouter {
         ...chat,
         members: chat.members.filter((m) => m !== peerId),
       })
+    }
+
+    // Leave signaling room if we're the one leaving
+    const localId = usePeerStore.getState().localProfile?.id
+    if (peerId === localId) {
+      const sc = getSignalingClient()
+      if (sc.getState() === 'connected') sc.leaveRoom(chatId)
     }
   }
 

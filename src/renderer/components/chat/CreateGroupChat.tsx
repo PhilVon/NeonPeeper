@@ -9,6 +9,7 @@ import { usePeerStore } from '../../store/peer-store'
 import { useChatStore } from '../../store/chat-store'
 import { useConnectionStore } from '../../store/connection-store'
 import { getConnectionManager } from '../../services/ConnectionManager'
+import { getSignalingClient } from '../../services/SignalingClient'
 import { getPersistenceManager } from '../../services/PersistenceManager'
 import { createMessage } from '../../types/protocol'
 import './CreateGroupChat.css'
@@ -98,6 +99,10 @@ export function CreateGroupChat({ isOpen, onClose, onCreated }: CreateGroupChatP
       }, chatId)
       cm.sendMessage(peerId, msg)
     }
+
+    // Join signaling room for group discovery
+    const sc = getSignalingClient()
+    if (sc.getState() === 'connected') sc.joinRoom(chatId)
 
     onCreated(chatId)
     onClose()

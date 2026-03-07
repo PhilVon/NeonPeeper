@@ -311,6 +311,44 @@ function handleDisconnect(peerId: string) {
 
 ---
 
+## Chat Session Integration
+
+Signaling rooms bridge with chat sessions to provide group peer discovery and crash detection.
+
+### Room-Chat Mapping
+
+| Chat Type | Room Usage |
+|-----------|-----------|
+| **Direct** | No room. Direct chats use a single RTCPeerConnection with no signaling room. |
+| **Group** | `roomId === chatId`. Each active group chat maps 1:1 to a signaling room. |
+
+### Room Purpose
+
+Rooms serve two functions for group chats:
+
+1. **Online member discovery** — `discover(roomId)` returns which group members are currently connected to the signaling server
+2. **Crash detection** — When a peer's heartbeat times out, the server broadcasts `peer-left` with `roomId` to remaining room members
+
+Rooms are **not** authoritative for membership. The chat protocol `members[]` array (managed via `CHAT_CREATE`, `CHAT_INVITE`, `CHAT_JOIN`, `CHAT_LEAVE`) is the source of truth. Room membership only reflects who is currently online.
+
+### Lifecycle Coordination
+
+| Chat Event | Signaling Action |
+|------------|-----------------|
+| `CHAT_CREATE` (group) | Creator calls `joinRoom(chatId)` |
+| `CHAT_CREATE` received | Receiver calls `joinRoom(chatId)` |
+| `CHAT_INVITE` received | Invitee calls `joinRoom(chatId)` |
+| `CHAT_LEAVE` sent (self) | Leaver calls `leaveRoom(chatId)` |
+| Signaling reconnect | Rejoin rooms for all active group chats |
+| Signaling `peer-left` (with `roomId`) | UI-only status update (no membership change) |
+| Signaling disconnect | All rooms cleared client-side |
+
+### Group Size
+
+Rooms inherit the client-enforced group size limit of 12 peers. This is **not** enforced server-side — the signaling server remains minimal and trusts clients.
+
+---
+
 ## Directory Structure
 
 ```
