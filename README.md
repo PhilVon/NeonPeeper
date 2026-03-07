@@ -34,9 +34,13 @@ A peer-to-peer chat and video calling desktop application with a cyberpunk/neon 
 - **Safety Numbers** — Verify peer identity out-of-band
 - **Context Isolation** — Electron security best practices with `contextIsolation: true` and `nodeIntegration: false`
 
+### Personalization
+- **User Avatars** — Set a profile image via an interactive image editor with crop, zoom, and brightness/contrast controls; avatars are shared with peers via the HELLO handshake and live `PROFILE_UPDATE` broadcasts
+- **Custom Emojis** — Create personal emoji images (up to 50), assign shortcodes, and embed them inline in messages; emojis are sent with each message so recipients always see them
+
 ### UI
 - **Cyberpunk Aesthetic** — Neon glow effects, CRT scanlines, glitch animations, and a dark theme throughout
-- **Emoji & GIF Support** — Emoji picker and Giphy integration
+- **Emoji & GIF Support** — Emoji picker, Giphy integration, and custom emoji picker in chat
 - **Message Status** — Visual delivery indicators (sending, sent, delivered, read) with distinct icons
 - **Split-Pane Video** — Resizable chat/video split when media is active, with focused tile and filmstrip layouts
 
@@ -93,17 +97,17 @@ src/
 ├── preload/         # Context bridge (IPC)
 ├── renderer/        # React application
 │   ├── components/
-│   │   ├── chat/      # ChatView, ChatList, ChatInput, ChatMessage, ChatHeader, TypingIndicator
+│   │   ├── chat/      # ChatView, ChatList, ChatInput, ChatMessage, ChatHeader, TypingIndicator, CustomEmojiPicker
 │   │   ├── media/     # ChatVideoPanel, VideoGrid, VideoTile, MediaControls, ScreenSourcePicker
 │   │   ├── peers/     # PeerList, PeerCard, PeerInvite, ConnectionDialog
-│   │   ├── settings/  # MediaSettings, NetworkSettings, QualitySettings
+│   │   ├── settings/  # MediaSettings, NetworkSettings, QualitySettings, EmojiManager
 │   │   ├── layout/    # MainLayout, TitleBar, Sidebar, StatusBar, SplitPane
-│   │   ├── ui/        # NeonButton, NeonCard, NeonInput, Modal, Toast, Avatar, etc.
+│   │   ├── ui/        # NeonButton, NeonCard, NeonInput, Modal, Toast, Avatar, ImageEditor, etc.
 │   │   └── demo/      # Component showcase
 │   ├── hooks/         # useSpeakingDetection, useMediaStream, useClickOutside, etc.
 │   ├── services/      # ConnectionManager, MessageRouter, MediaManager, CryptoManager,
 │   │                  # SignalingClient, PersistenceManager, PerformanceMonitor, SFUClient
-│   ├── store/         # Zustand stores (chat, connection, media, peer, performance, settings, toast, ui)
+│   ├── store/         # Zustand stores (chat, connection, emoji, media, peer, performance, settings, toast, ui)
 │   ├── styles/        # CSS variables, animations, effects
 │   └── types/         # Protocol definitions, peer/chat/media types
 signaling-server/    # Standalone WebSocket signaling server
@@ -111,13 +115,13 @@ signaling-server/    # Standalone WebSocket signaling server
 
 ## Protocol
 
-Neon Peeper uses the **NEONP2P/1.0** protocol with 24 message types across 6 categories:
+Neon Peeper uses the **NEONP2P/1.0** protocol with 25 message types across 6 categories:
 
 | Category | Types |
 |----------|-------|
 | Connection | `HELLO`, `HELLO_ACK`, `PING`, `PONG`, `DISCONNECT` |
 | Text | `TEXT`, `TEXT_ACK`, `TEXT_EDIT`, `TEXT_DELETE` |
-| Presence | `TYPING_START`, `TYPING_STOP`, `STATUS_UPDATE` |
+| Presence | `TYPING_START`, `TYPING_STOP`, `STATUS_UPDATE`, `PROFILE_UPDATE` |
 | Chat | `CHAT_CREATE`, `CHAT_INVITE`, `CHAT_JOIN`, `CHAT_LEAVE`, `CHAT_SYNC` |
 | Media | `MEDIA_OFFER`, `MEDIA_ANSWER`, `MEDIA_ICE`, `MEDIA_START`, `MEDIA_STOP`, `MEDIA_QUALITY` |
 | Error | `ERROR` |
@@ -144,6 +148,8 @@ Messages are signed with Ed25519 when signing is enabled. Error responses use st
 - [x] Auto-reconnection with exponential backoff
 - [x] Configurable STUN/TURN servers
 - [x] Protocol error handling with structured error codes
+- [x] User avatars with interactive image editor
+- [x] Custom emojis with inline rendering
 - [ ] File sharing
 - [ ] End-to-end message encryption
 - [ ] SFU support for large group calls (scaffolding in place)

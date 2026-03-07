@@ -129,3 +129,13 @@
   background: rgba(0, 255, 255, 0.1);
   color: var(--neon-cyan);
 }
+
+/* Custom emoji inline */
+.chat-message-custom-emoji {
+  width: 24px;
+  height: 24px;
+  vertical-align: middle;
+  display: inline;
+  image-rendering: pixelated;
+  margin: 0 1px;
+}

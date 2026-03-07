@@ -1,8 +1,16 @@
 import { openDB, type IDBPDatabase } from 'idb'
 import type { StoredMessage, StoredChat } from '../types/chat'
+import type { CustomEmoji } from '../types/emoji'
 
 const DB_NAME = 'neon-peeper-chat'
-const DB_VERSION = 1
+const DB_VERSION = 2
+
+interface EmojiCacheEntry {
+  id: string // peerId:shortcode
+  peerId: string
+  shortcode: string
+  dataUrl: string
+}
 
 interface NeonPeeperDB {
   messages: {
@@ -22,6 +30,20 @@ interface NeonPeeperDB {
       'by-state': string
     }
   }
+  customEmojis: {
+    key: string
+    value: CustomEmoji
+    indexes: {
+      'by-shortcode': string
+    }
+  }
+  emojiCache: {
+    key: string
+    value: EmojiCacheEntry
+    indexes: {
+      'by-peer': string
+    }
+  }
 }
 
 class PersistenceManager {
@@ -29,17 +51,29 @@ class PersistenceManager {
 
   async init(): Promise<void> {
     this.db = await openDB<NeonPeeperDB>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        // Messages store
-        const messagesStore = db.createObjectStore('messages', { keyPath: 'id' })
-        messagesStore.createIndex('by-chat', 'chatId')
-        messagesStore.createIndex('by-timestamp', 'timestamp')
-        messagesStore.createIndex('by-chat-timestamp', ['chatId', 'timestamp'])
+      upgrade(db, oldVersion) {
+        if (oldVersion < 1) {
+          // Messages store
+          const messagesStore = db.createObjectStore('messages', { keyPath: 'id' })
+          messagesStore.createIndex('by-chat', 'chatId')
+          messagesStore.createIndex('by-timestamp', 'timestamp')
+          messagesStore.createIndex('by-chat-timestamp', ['chatId', 'timestamp'])
 
-        // Chats store
-        const chatsStore = db.createObjectStore('chats', { keyPath: 'id' })
-        chatsStore.createIndex('by-last-activity', 'lastActivity')
-        chatsStore.createIndex('by-state', 'state')
+          // Chats store
+          const chatsStore = db.createObjectStore('chats', { keyPath: 'id' })
+          chatsStore.createIndex('by-last-activity', 'lastActivity')
+          chatsStore.createIndex('by-state', 'state')
+        }
+
+        if (oldVersion < 2) {
+          // Custom emojis store
+          const emojiStore = db.createObjectStore('customEmojis', { keyPath: 'id' })
+          emojiStore.createIndex('by-shortcode', 'shortcode', { unique: true })
+
+          // Emoji cache store
+          const cacheStore = db.createObjectStore('emojiCache', { keyPath: 'id' })
+          cacheStore.createIndex('by-peer', 'peerId')
+        }
       },
     })
   }
@@ -144,11 +178,63 @@ class PersistenceManager {
     }
   }
 
+  // --- Custom Emojis ---
+
+  async storeCustomEmoji(emoji: CustomEmoji): Promise<void> {
+    const db = this.ensureDb()
+    await db.put('customEmojis', emoji)
+  }
+
+  async deleteCustomEmoji(id: string): Promise<void> {
+    const db = this.ensureDb()
+    await db.delete('customEmojis', id)
+  }
+
+  async getAllCustomEmojis(): Promise<CustomEmoji[]> {
+    const db = this.ensureDb()
+    return db.getAll('customEmojis')
+  }
+
+  // --- Emoji Cache ---
+
+  async cachePeerEmoji(peerId: string, shortcode: string, dataUrl: string): Promise<void> {
+    const db = this.ensureDb()
+    const entry: EmojiCacheEntry = {
+      id: `${peerId}:${shortcode}`,
+      peerId,
+      shortcode,
+      dataUrl,
+    }
+    await db.put('emojiCache', entry)
+
+    // Evict oldest if >500 entries
+    const count = await db.count('emojiCache')
+    if (count > 500) {
+      const tx = db.transaction('emojiCache', 'readwrite')
+      let cursor = await tx.store.openCursor()
+      let toDelete = count - 500
+      while (cursor && toDelete > 0) {
+        await cursor.delete()
+        toDelete--
+        cursor = await cursor.continue()
+      }
+      await tx.done
+    }
+  }
+
+  async getCachedPeerEmoji(peerId: string, shortcode: string): Promise<string | undefined> {
+    const db = this.ensureDb()
+    const entry = await db.get('emojiCache', `${peerId}:${shortcode}`)
+    return entry?.dataUrl
+  }
+
   async clearAll(): Promise<void> {
     const db = this.ensureDb()
-    const tx = db.transaction(['messages', 'chats'], 'readwrite')
+    const tx = db.transaction(['messages', 'chats', 'customEmojis', 'emojiCache'], 'readwrite')
     await tx.objectStore('messages').clear()
     await tx.objectStore('chats').clear()
+    await tx.objectStore('customEmojis').clear()
+    await tx.objectStore('emojiCache').clear()
     await tx.done
   }
 }

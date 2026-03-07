@@ -32,17 +32,17 @@ src/
 │   └── index.ts       # Exposes electronAPI via contextBridge
 ├── renderer/          # React application (Chromium context)
 │   ├── components/
-│   │   ├── chat/      # ChatView, ChatList, ChatInput, ChatMessage, ChatHeader, TypingIndicator, GroupMemberList
+│   │   ├── chat/      # ChatView, ChatList, ChatInput, ChatMessage, ChatHeader, TypingIndicator, GroupMemberList, CustomEmojiPicker
 │   │   ├── media/     # ChatVideoPanel, VideoGrid, VideoTile, MediaControls, DeviceSelector, ScreenShareView, ScreenSourcePicker, QualityIndicator
 │   │   ├── peers/     # PeerList, PeerCard, PeerInvite, ConnectionDialog
-│   │   ├── settings/  # MediaSettings, NetworkSettings, QualitySettings
+│   │   ├── settings/  # MediaSettings, NetworkSettings, QualitySettings, EmojiManager
 │   │   ├── layout/    # MainLayout, TitleBar, Sidebar, StatusBar, SplitPane, ResizablePanel, Collapsible
-│   │   ├── ui/        # NeonButton, NeonCard, NeonInput, Modal, Toast, Tabs, Avatar, Badge, DataTable, etc.
+│   │   ├── ui/        # NeonButton, NeonCard, NeonInput, Modal, Toast, Tabs, Avatar, Badge, DataTable, ImageEditor, etc.
 │   │   ├── demo/      # DemoSuite with pages for component showcase
 │   │   └── utils/     # Portal
 │   ├── hooks/         # useClickOutside, useEscapeKey, useFocusTrap, useMediaStream, useSpeakingDetection, useTypingEffect, useTextScramble, useCountUp, useReplayAnimation
 │   ├── services/      # ConnectionManager, MessageRouter, MediaManager, CryptoManager, SignalingClient, PersistenceManager, PerformanceMonitor, SFUClient
-│   ├── store/         # Zustand stores (chat, connection, media, peer, performance, settings, toast, ui)
+│   ├── store/         # Zustand stores (chat, connection, emoji, media, peer, performance, settings, toast, ui)
 │   ├── styles/        # CSS variables, globals, animations
 │   ├── types/         # protocol.ts, peer.ts, chat.ts, media.ts
 │   ├── App.tsx
@@ -73,18 +73,20 @@ Per-chat video panels (`ChatVideoPanel` via `SplitPane`) render inline when vide
 
 ### Protocol (NEONP2P/1.0)
 
-Defined in `src/renderer/types/protocol.ts`. 24 message types in 6 categories:
+Defined in `src/renderer/types/protocol.ts`. 25 message types in 6 categories:
 
 | Category | Types |
 |----------|-------|
 | Connection | `HELLO`, `HELLO_ACK`, `PING`, `PONG`, `DISCONNECT` |
 | Text | `TEXT`, `TEXT_ACK`, `TEXT_EDIT`, `TEXT_DELETE` |
-| Presence | `TYPING_START`, `TYPING_STOP`, `STATUS_UPDATE` |
+| Presence | `TYPING_START`, `TYPING_STOP`, `STATUS_UPDATE`, `PROFILE_UPDATE` |
 | Chat session | `CHAT_CREATE`, `CHAT_INVITE`, `CHAT_JOIN`, `CHAT_LEAVE`, `CHAT_SYNC` |
 | Media | `MEDIA_OFFER`, `MEDIA_ANSWER`, `MEDIA_ICE`, `MEDIA_START`, `MEDIA_STOP`, `MEDIA_QUALITY` |
 | Error | `ERROR` |
 
 Envelope: `NeonP2PMessage<T>` with `version`, `type`, `id`, `from`, `to`, `chatId`, `timestamp`, `payload`, optional `signature`. Discriminated unions via `PayloadMap`. Helper: `createMessage<T>()`.
+
+Types also defined in `src/renderer/types/emoji.ts`: `CustomEmoji` (own emoji with id, shortcode, dataUrl) and `EmbeddedEmoji` (shortcode + dataUrl sent inline with TEXT messages).
 
 ### Services
 
@@ -105,6 +107,7 @@ All services are singletons accessed via `getXxxManager()` / `getXxxClient()`.
 |-------|-----------|-------------|
 | `chat-store` | `chats`, `messages`, `activeChatId`, `typing` | IndexedDB (via PersistenceManager) |
 | `connection-store` | `connections` (state, ICE, RTT, reconnects) | Memory only |
+| `emoji-store` | `emojis` (own custom emojis), `peerEmojiCache` | IndexedDB (`customEmojis`, `emojiCache` stores) |
 | `media-store` | Local/remote streams, mute state, per-chat video sharing, quality | Memory only |
 | `peer-store` | `localProfile`, `peers` | Memory only |
 | `performance-store` | Per-peer stats, aggregate quality | Memory only |

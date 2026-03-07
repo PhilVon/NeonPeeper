@@ -7,11 +7,14 @@ import { NeonButton } from './components/ui/NeonButton'
 import { NeonInput } from './components/ui/NeonInput'
 import { Toggle } from './components/ui/Toggle'
 import { Tabs, TabList, Tab, TabPanel } from './components/ui/Tabs'
+import { Avatar } from './components/ui/Avatar'
+import { ImageEditor } from './components/ui/ImageEditor'
 import { PeerInvite } from './components/peers/PeerInvite'
 import { PeerList } from './components/peers/PeerList'
 import { ChatList } from './components/chat/ChatList'
 import { ChatView } from './components/chat/ChatView'
 import { CreateGroupChat } from './components/chat/CreateGroupChat'
+import { EmojiManager } from './components/settings/EmojiManager'
 import { MediaSettings } from './components/settings/MediaSettings'
 import { QualitySettings } from './components/settings/QualitySettings'
 import { NetworkSettings } from './components/settings/NetworkSettings'
@@ -22,6 +25,7 @@ import { useChatStore } from './store/chat-store'
 import { useSettingsStore } from './store/settings-store'
 import { useMediaStore } from './store/media-store'
 import { useConnectionStore } from './store/connection-store'
+import { useEmojiStore } from './store/emoji-store'
 import { getConnectionManager } from './services/ConnectionManager'
 import { getMessageRouter } from './services/MessageRouter'
 import { getPersistenceManager } from './services/PersistenceManager'
@@ -30,6 +34,7 @@ import { getMediaManager } from './services/MediaManager'
 import { getCryptoManager } from './services/CryptoManager'
 import { getPerformanceMonitor } from './services/PerformanceMonitor'
 import { generateDirectChatId } from './types/chat'
+import { createMessage } from './types/protocol'
 import { DEFAULT_RECONNECTION_CONFIG } from './types/peer'
 import type { QualityPreset } from './types/protocol'
 import './App.css'
@@ -89,7 +94,26 @@ export function App() {
     }
   }, [displayName])
 
-  // Initialize PersistenceManager and load chats
+  // Sync avatar and broadcast PROFILE_UPDATE to connected peers
+  const avatarDataUrl = useSettingsStore((s) => s.avatarDataUrl)
+  useEffect(() => {
+    const profile = usePeerStore.getState().localProfile
+    if (profile) {
+      usePeerStore.getState().setLocalProfile({ ...profile, avatarDataUrl: avatarDataUrl || undefined })
+
+      // Broadcast to all connected peers
+      const cm = getConnectionManager()
+      for (const peerId of cm.getConnectedPeerIds()) {
+        const msg = createMessage('PROFILE_UPDATE', profile.id, peerId, {
+          displayName: profile.displayName,
+          avatarDataUrl: avatarDataUrl || undefined,
+        })
+        cm.sendMessage(peerId, msg)
+      }
+    }
+  }, [avatarDataUrl])
+
+  // Initialize PersistenceManager, load chats, and load emoji store
   useEffect(() => {
     const pm = getPersistenceManager()
     pm.init().then(async () => {
@@ -107,6 +131,8 @@ export function App() {
           })
         }
       }
+      // Load custom emojis
+      await useEmojiStore.getState().loadEmojis()
     }).catch((err) => {
       console.error('Failed to init PersistenceManager:', err)
     })
@@ -414,6 +440,10 @@ function SettingsPage() {
   const setAutoConnect = useSettingsStore((s) => s.setAutoConnect)
   const localProfile = usePeerStore((s) => s.localProfile)
 
+  const settingsAvatarDataUrl = useSettingsStore((s) => s.avatarDataUrl)
+  const setAvatarDataUrl = useSettingsStore((s) => s.setAvatarDataUrl)
+  const [showAvatarEditor, setShowAvatarEditor] = useState(false)
+
   const giphyApiKey = useSettingsStore((s) => s.giphyApiKey)
   const setGiphyApiKey = useSettingsStore((s) => s.setGiphyApiKey)
   const signalingClient = getSignalingClient()
@@ -439,6 +469,23 @@ function SettingsPage() {
         <TabPanel id="profile">
           <section className="app-settings-section">
             <h3>Profile</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
+              <Avatar
+                name={displayName}
+                src={settingsAvatarDataUrl || undefined}
+                size="large"
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
+                <NeonButton size="small" variant="secondary" onClick={() => setShowAvatarEditor(true)}>
+                  {settingsAvatarDataUrl ? 'Change Avatar' : 'Set Avatar'}
+                </NeonButton>
+                {settingsAvatarDataUrl && (
+                  <NeonButton size="small" variant="danger" onClick={() => setAvatarDataUrl('')}>
+                    Remove
+                  </NeonButton>
+                )}
+              </div>
+            </div>
             <NeonInput
               label="Display Name"
               value={displayName}
@@ -450,6 +497,10 @@ function SettingsPage() {
                 <code className="app-settings-code">{localProfile.id}</code>
               </div>
             )}
+          </section>
+
+          <section className="app-settings-section">
+            <EmojiManager />
           </section>
 
           <section className="app-settings-section">
@@ -549,6 +600,13 @@ function SettingsPage() {
           </section>
         </TabPanel>
       </Tabs>
+      <ImageEditor
+        isOpen={showAvatarEditor}
+        onClose={() => setShowAvatarEditor(false)}
+        onSave={(dataUrl) => setAvatarDataUrl(dataUrl)}
+        mode="avatar"
+        initialImage={settingsAvatarDataUrl || undefined}
+      />
     </div>
   )
 }

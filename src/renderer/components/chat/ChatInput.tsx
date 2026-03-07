@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { NeonButton } from '../ui/NeonButton'
 import { EmojiPickerPopup } from './EmojiPickerPopup'
 import { GiphySearchPanel } from './GiphySearchPanel'
+import { CustomEmojiPicker } from './CustomEmojiPicker'
 import type { GifMeta } from '../../types/protocol'
 import './ChatInput.css'
 
@@ -29,6 +30,7 @@ export function ChatInput({
   const [value, setValue] = useState('')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showGifPanel, setShowGifPanel] = useState(false)
+  const [showCustomEmojiPicker, setShowCustomEmojiPicker] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -121,12 +123,38 @@ export function ChatInput({
   const handleToggleEmoji = useCallback(() => {
     setShowEmojiPicker((v) => !v)
     setShowGifPanel(false)
+    setShowCustomEmojiPicker(false)
   }, [])
 
   const handleToggleGif = useCallback(() => {
     setShowGifPanel((v) => !v)
     setShowEmojiPicker(false)
+    setShowCustomEmojiPicker(false)
   }, [])
+
+  const handleToggleCustomEmoji = useCallback(() => {
+    setShowCustomEmojiPicker((v) => !v)
+    setShowEmojiPicker(false)
+    setShowGifPanel(false)
+  }, [])
+
+  const handleCustomEmojiSelect = useCallback((shortcode: string) => {
+    const textarea = textareaRef.current
+    if (textarea) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const newValue = value.slice(0, start) + shortcode + value.slice(end)
+      setValue(newValue)
+      requestAnimationFrame(() => {
+        textarea.focus()
+        const pos = start + shortcode.length
+        textarea.setSelectionRange(pos, pos)
+      })
+    } else {
+      setValue((v) => v + shortcode)
+    }
+    setShowCustomEmojiPicker(false)
+  }, [value])
 
   const handleSelectGif = useCallback((url: string, meta: GifMeta) => {
     onSend(url, 'gif', meta)
@@ -165,6 +193,14 @@ export function ChatInput({
         >
           GIF
         </button>
+        <button
+          className={['chat-input-icon-btn', showCustomEmojiPicker && 'chat-input-icon-btn-active'].filter(Boolean).join(' ')}
+          onClick={handleToggleCustomEmoji}
+          disabled={disabled}
+          title="Custom Emoji"
+        >
+          *
+        </button>
         <textarea
           ref={textareaRef}
           className="chat-input-textarea"
@@ -192,6 +228,11 @@ export function ChatInput({
         isOpen={showGifPanel}
         onClose={() => setShowGifPanel(false)}
         onSelectGif={handleSelectGif}
+      />
+      <CustomEmojiPicker
+        isOpen={showCustomEmojiPicker}
+        onClose={() => setShowCustomEmojiPicker(false)}
+        onSelect={handleCustomEmojiSelect}
       />
     </div>
   )

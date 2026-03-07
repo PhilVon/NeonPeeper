@@ -6,6 +6,7 @@ export interface PeerProfile {
   firstSeen: number
   lastSeen: number
   status?: 'online' | 'busy' | 'idle'
+  avatarDataUrl?: string
 }
 
 export interface LocalProfile {
@@ -14,6 +15,7 @@ export interface LocalProfile {
   publicKey: string
   privateKey?: CryptoKey
   capabilities: string[]
+  avatarDataUrl?: string
 }
 
 export type ConnectionState =

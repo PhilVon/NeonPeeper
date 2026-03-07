@@ -411,6 +411,7 @@ export class ConnectionManager {
       displayName: profile.displayName,
       publicKey: profile.publicKey,
       capabilities: profile.capabilities,
+      avatarDataUrl: profile.avatarDataUrl,
     })
     this.sendMessage(peerId, msg)
   }

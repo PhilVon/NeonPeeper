@@ -11,6 +11,7 @@ import { usePeerStore } from '../store/peer-store'
 import { useConnectionStore } from '../store/connection-store'
 import { useChatStore } from '../store/chat-store'
 import { useMediaStore } from '../store/media-store'
+import { useEmojiStore } from '../store/emoji-store'
 import { getConnectionManager } from './ConnectionManager'
 import { getMediaManager } from './MediaManager'
 import { getCryptoManager } from './CryptoManager'
@@ -53,6 +54,7 @@ export class MessageRouter {
     this.registerHandler('CHAT_LEAVE', this.handleChatLeave.bind(this))
     this.registerHandler('CHAT_SYNC', this.handleChatSync.bind(this))
     this.registerHandler('STATUS_UPDATE', this.handleStatusUpdate.bind(this))
+    this.registerHandler('PROFILE_UPDATE', this.handleProfileUpdate.bind(this))
 
     // Phase 4: Media handlers
     this.registerHandler('MEDIA_OFFER', this.handleMediaOffer.bind(this))
@@ -174,6 +176,7 @@ export class MessageRouter {
       capabilities: payload.capabilities,
       firstSeen: now,
       lastSeen: now,
+      avatarDataUrl: payload.avatarDataUrl,
     })
 
     // TOFU key pinning
@@ -193,6 +196,7 @@ export class MessageRouter {
       publicKey: localProfile.publicKey,
       capabilities: localProfile.capabilities,
       ackedPeerId: message.from,
+      avatarDataUrl: localProfile.avatarDataUrl,
     })
 
     getConnectionManager().sendMessage(peerId, ackMsg)
@@ -211,6 +215,7 @@ export class MessageRouter {
       capabilities: payload.capabilities,
       firstSeen: now,
       lastSeen: now,
+      avatarDataUrl: payload.avatarDataUrl,
     })
 
     // TOFU key pinning
@@ -292,6 +297,14 @@ export class MessageRouter {
       }).catch(() => {})
     }
 
+    // Cache received custom emojis
+    const customEmojis = message.payload.customEmojis
+    if (customEmojis && customEmojis.length > 0) {
+      for (const emoji of customEmojis) {
+        useEmojiStore.getState().cachePeerEmoji(message.from, emoji.shortcode, emoji.dataUrl)
+      }
+    }
+
     // Store message
     const chatMessage: ChatMessage = {
       id: message.id,
@@ -303,6 +316,7 @@ export class MessageRouter {
       replyTo: message.payload.replyTo,
       contentType: message.payload.contentType,
       meta: message.payload.meta,
+      customEmojis,
     }
 
     chatStore.addMessage(chatMessage)
@@ -604,6 +618,18 @@ export class MessageRouter {
 
   private handleStatusUpdate(message: NeonP2PMessage<'STATUS_UPDATE'>, _peerId: string): void {
     usePeerStore.getState().setPeerStatus(message.from, Date.now(), message.payload.status)
+  }
+
+  private handleProfileUpdate(message: NeonP2PMessage<'PROFILE_UPDATE'>, _peerId: string): void {
+    const peer = usePeerStore.getState().peers.get(message.from)
+    if (peer) {
+      usePeerStore.getState().upsertPeer({
+        ...peer,
+        displayName: message.payload.displayName ?? peer.displayName,
+        avatarDataUrl: message.payload.avatarDataUrl,
+        lastSeen: Date.now(),
+      })
+    }
   }
 }
 

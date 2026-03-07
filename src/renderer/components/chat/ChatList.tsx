@@ -41,6 +41,17 @@ export function ChatList({ onNewChat }: ChatListProps) {
     return 'Unknown Chat'
   }
 
+  const getChatAvatar = (chat: Chat): string | undefined => {
+    if (chat.type === 'direct') {
+      const localId = usePeerStore.getState().localProfile?.id
+      const otherMember = chat.members.find((m) => m !== localId)
+      if (otherMember) {
+        return peers.get(otherMember)?.avatarDataUrl
+      }
+    }
+    return undefined
+  }
+
   const getPeerStatus = (chat: Chat): 'online' | 'offline' | 'busy' | 'idle' => {
     if (chat.type === 'group') return 'online'
     const localId = usePeerStore.getState().localProfile?.id
@@ -73,7 +84,7 @@ export function ChatList({ onNewChat }: ChatListProps) {
               className={`chat-list-item ${isActive ? 'chat-list-item-active' : ''}`}
               onClick={() => setActiveChat(chat.id)}
             >
-              <Avatar name={displayName} size="small" status={status} />
+              <Avatar name={displayName} src={getChatAvatar(chat)} size="small" status={status} />
               <div className="chat-list-item-info">
                 <span className="chat-list-item-name">{displayName}</span>
                 {chat.lastMessagePreview && (

@@ -1,7 +1,9 @@
+import type { EmbeddedEmoji } from './emoji'
+
 // Protocol version constant
 export const PROTOCOL_VERSION = 'NEONP2P/1.0' as const
 
-// All 24 message types
+// All 25 message types
 export type MessageType =
   // Connection (5)
   | 'HELLO'
@@ -14,10 +16,11 @@ export type MessageType =
   | 'TEXT_ACK'
   | 'TEXT_EDIT'
   | 'TEXT_DELETE'
-  // Presence (3)
+  // Presence (4)
   | 'TYPING_START'
   | 'TYPING_STOP'
   | 'STATUS_UPDATE'
+  | 'PROFILE_UPDATE'
   // Chat session (5)
   | 'CHAT_CREATE'
   | 'CHAT_INVITE'
@@ -41,6 +44,7 @@ export interface HelloPayload {
   displayName: string
   publicKey: string
   capabilities: string[]
+  avatarDataUrl?: string
 }
 
 export interface HelloAckPayload {
@@ -48,6 +52,7 @@ export interface HelloAckPayload {
   publicKey: string
   capabilities: string[]
   ackedPeerId: string
+  avatarDataUrl?: string
 }
 
 export interface PingPayload {
@@ -80,6 +85,7 @@ export interface TextPayload {
   replyTo?: string
   contentType?: 'text' | 'gif'
   meta?: GifMeta
+  customEmojis?: EmbeddedEmoji[]
 }
 
 export interface TextAckPayload {
@@ -102,6 +108,11 @@ export interface TypingPayload {}
 
 export interface StatusUpdatePayload {
   status: 'online' | 'busy' | 'idle'
+}
+
+export interface ProfileUpdatePayload {
+  displayName?: string
+  avatarDataUrl?: string
 }
 
 // Chat session payloads
@@ -203,6 +214,7 @@ export interface PayloadMap {
   TYPING_START: TypingPayload
   TYPING_STOP: TypingPayload
   STATUS_UPDATE: StatusUpdatePayload
+  PROFILE_UPDATE: ProfileUpdatePayload
   CHAT_CREATE: ChatCreatePayload
   CHAT_INVITE: ChatInvitePayload
   CHAT_JOIN: ChatJoinPayload

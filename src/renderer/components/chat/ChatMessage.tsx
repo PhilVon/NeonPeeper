@@ -4,6 +4,7 @@ import { Avatar } from '../ui/Avatar'
 import { GifMessage } from './GifMessage'
 import { useClickOutside } from '../../hooks/useClickOutside'
 import type { ChatMessage as ChatMessageType } from '../../types/chat'
+import type { EmbeddedEmoji } from '../../types/emoji'
 import './ChatMessage.css'
 
 interface ChatMessageProps {
@@ -27,6 +28,46 @@ function getStatusIcon(status: ChatMessageType['status']): string {
     case 'delivered': return '✓✓'
     case 'read': return '✓✓'
   }
+}
+
+function renderMessageContent(content: string, customEmojis?: EmbeddedEmoji[]): React.ReactNode {
+  if (!customEmojis || customEmojis.length === 0) {
+    return content
+  }
+
+  const emojiMap = new Map(customEmojis.map((e) => [e.shortcode, e.dataUrl]))
+  const parts: React.ReactNode[] = []
+  const regex = /:([a-zA-Z0-9_]{2,32}):/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  let key = 0
+
+  while ((match = regex.exec(content)) !== null) {
+    const shortcode = match[1]
+    const dataUrl = emojiMap.get(shortcode)
+
+    if (dataUrl) {
+      if (match.index > lastIndex) {
+        parts.push(content.slice(lastIndex, match.index))
+      }
+      parts.push(
+        <img
+          key={key++}
+          src={dataUrl}
+          alt={`:${shortcode}:`}
+          title={`:${shortcode}:`}
+          className="chat-message-custom-emoji"
+        />
+      )
+      lastIndex = match.index + match[0].length
+    }
+  }
+
+  if (lastIndex < content.length) {
+    parts.push(content.slice(lastIndex))
+  }
+
+  return parts.length > 0 ? parts : content
 }
 
 export function ChatMessage({
@@ -64,7 +105,7 @@ export function ChatMessage({
   return (
     <div className={`chat-message ${isOwn ? 'chat-message-own' : ''}`}>
       {showSender && !isOwn && (
-        <Avatar name={peer?.displayName || '?'} size="small" />
+        <Avatar name={peer?.displayName || '?'} src={peer?.avatarDataUrl} size="small" />
       )}
       <div className="chat-message-content" onContextMenu={handleContextMenu}>
         {showSender && !isOwn && (
@@ -81,7 +122,7 @@ export function ChatMessage({
           {isGif ? (
             <GifMessage url={message.content} meta={message.meta} />
           ) : (
-            <span className="chat-message-text">{message.content}</span>
+            <span className="chat-message-text">{renderMessageContent(message.content, message.customEmojis)}</span>
           )}
           <span className="chat-message-meta">
             {message.edited && <span className="chat-message-edited">edited</span>}

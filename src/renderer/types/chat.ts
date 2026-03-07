@@ -1,4 +1,5 @@
 import type { GifMeta } from './protocol'
+import type { EmbeddedEmoji } from './emoji'
 
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read'
 
@@ -14,6 +15,7 @@ export interface ChatMessage {
   deleted?: boolean
   contentType?: 'text' | 'gif'
   meta?: GifMeta
+  customEmojis?: EmbeddedEmoji[]
 }
 
 export type ChatType = 'direct' | 'group'
@@ -45,6 +47,7 @@ export interface StoredMessage {
   deleted?: boolean
   contentType?: 'text' | 'gif'
   meta?: GifMeta
+  customEmojis?: EmbeddedEmoji[]
 }
 
 export interface StoredChat {

@@ -30,7 +30,7 @@ export function PeerCard({ peer, onChat, onConnect }: PeerCardProps) {
   return (
     <div className="peer-card">
       <div className="peer-card-header">
-        <Avatar name={peer.displayName} size="medium" status={status} />
+        <Avatar name={peer.displayName} src={peer.avatarDataUrl} size="medium" status={status} />
         <div className="peer-card-info">
           <span className="peer-card-name">{peer.displayName}</span>
           <span className="peer-card-id">{peer.id.slice(0, 16)}...</span>

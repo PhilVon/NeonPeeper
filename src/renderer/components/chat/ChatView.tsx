@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { useChatStore } from '../../store/chat-store'
 import { usePeerStore } from '../../store/peer-store'
 import { useMediaStore } from '../../store/media-store'
+import { useEmojiStore } from '../../store/emoji-store'
 import { ChatHeader } from './ChatHeader'
 import { ChatMessage } from './ChatMessage'
 import { ChatInput } from './ChatInput'
@@ -98,6 +99,33 @@ export function ChatView({ chat }: ChatViewProps) {
         return
       }
 
+      // Resolve custom emojis from content
+      let customEmojis: import('../../types/emoji').EmbeddedEmoji[] | undefined
+      if (contentType !== 'gif') {
+        const shortcodeMatches = content.match(/:([a-zA-Z0-9_]{2,32}):/g)
+        if (shortcodeMatches) {
+          const resolved = new Map<string, string>()
+          for (const match of shortcodeMatches) {
+            const code = match.slice(1, -1)
+            if (resolved.has(code)) continue
+            const emoji = useEmojiStore.getState().getEmojiByShortcode(code)
+            if (emoji) {
+              resolved.set(code, emoji.dataUrl)
+            }
+          }
+          if (resolved.size > 0) {
+            if (resolved.size > 8) {
+              toast.error('Maximum 8 custom emojis per message')
+              return
+            }
+            customEmojis = Array.from(resolved.entries()).map(([shortcode, dataUrl]) => ({
+              shortcode,
+              dataUrl,
+            }))
+          }
+        }
+      }
+
       const messageId = uuidv4()
       const now = Date.now()
 
@@ -111,6 +139,14 @@ export function ChatView({ chat }: ChatViewProps) {
         replyTo: replyTo?.id,
         contentType,
         meta,
+        customEmojis,
+      }
+
+      // Check total message size
+      const testPayload = JSON.stringify(chatMessage)
+      if (testPayload.length > PROTOCOL_CONSTANTS.MAX_MESSAGE_SIZE) {
+        toast.error('Message too large (including emoji images)')
+        return
       }
 
       useChatStore.getState().addMessage(chatMessage)
@@ -130,6 +166,7 @@ export function ChatView({ chat }: ChatViewProps) {
           replyTo: replyTo?.id,
           contentType,
           meta,
+          customEmojis,
         }, chat.id)
         ;(msg as { id: string }).id = messageId
 
