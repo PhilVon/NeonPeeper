@@ -1,0 +1,94 @@
+.resizable-panel {
+  position: relative;
+  background: var(--bg-medium);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.resizable-panel-content {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+.resizable-handle {
+  position: absolute;
+  background: transparent;
+  transition: background var(--transition-fast);
+  z-index: 10;
+}
+
+.resizable-handle:hover {
+  background: rgba(0, 255, 255, 0.2);
+}
+
+.resizable-handle-right {
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: ew-resize;
+}
+
+.resizable-handle-left {
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 100%;
+  cursor: ew-resize;
+}
+
+.resizable-handle-bottom {
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.resizable-handle-top {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.resizable-handle-corner {
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  cursor: nwse-resize;
+}
+
+.resizable-handle-corner::before {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transition: border-color var(--transition-fast);
+}
+
+.resizable-handle-corner:hover::before {
+  border-color: var(--neon-cyan);
+}
+
+.resizable-panel-dragging .resizable-handle {
+  background: rgba(0, 255, 255, 0.3);
+}
+
+.resizable-panel-dragging {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+}
+
+/* Prevent content interaction while dragging */
+.resizable-panel-dragging .resizable-panel-content {
+  pointer-events: none;
+}

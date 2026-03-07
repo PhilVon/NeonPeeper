@@ -1,0 +1,25 @@
+.statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 24px;
+  padding: 0 var(--spacing-md);
+  background: var(--bg-dark);
+  border-top: 1px solid var(--border-color);
+  font-size: var(--font-size-xs);
+}
+
+.statusbar-left,
+.statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.statusbar-text {
+  color: var(--text-secondary);
+}
+
+.statusbar-version {
+  color: var(--text-muted);
+}

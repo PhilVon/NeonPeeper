@@ -1,0 +1,12 @@
+.quality-settings h3 {
+  font-size: var(--font-size-md);
+  color: var(--neon-green);
+  margin-bottom: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: var(--spacing-xs);
+}
+
+.quality-settings h3:first-child {
+  margin-top: 0;
+}

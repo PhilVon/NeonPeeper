@@ -1,0 +1,58 @@
+.connection-dialog {
+  padding: var(--spacing-md) 0;
+}
+
+.connection-dialog-stages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.connection-dialog-stage {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+
+.connection-dialog-stage-active {
+  background: rgba(0, 255, 255, 0.05);
+}
+
+.connection-dialog-stage-complete {
+  opacity: 0.7;
+}
+
+.connection-dialog-stage-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.connection-dialog-error {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm);
+  background: rgba(255, 0, 68, 0.1);
+  border: 1px solid var(--neon-red);
+  border-radius: var(--radius-sm);
+  color: var(--neon-red);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.connection-dialog-success {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm);
+  color: var(--neon-green);
+  font-size: var(--font-size-md);
+  text-align: center;
+}
+
+.connection-dialog-rtt {
+  margin-top: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  text-align: center;
+}

@@ -1,0 +1,124 @@
+.select {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.select-label {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-medium);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  width: 100%;
+  text-align: left;
+}
+
+.select-trigger:hover:not(:disabled) {
+  border-color: var(--neon-cyan);
+}
+
+.select-trigger:focus {
+  outline: none;
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+.select-open .select-trigger {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+.select-placeholder {
+  color: var(--text-muted);
+}
+
+.select-arrow {
+  width: 12px;
+  height: 12px;
+  color: var(--text-secondary);
+  transition: transform var(--transition-fast);
+}
+
+.select-open .select-arrow {
+  transform: rotate(180deg);
+}
+
+.select-dropdown {
+  z-index: var(--z-dropdown);
+  background: var(--bg-dark);
+  border: 1px solid var(--neon-cyan);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+  overflow: hidden;
+  animation: fade-in 0.15s ease-out;
+}
+
+.select-option {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.select-option:hover {
+  background: rgba(0, 255, 255, 0.1);
+}
+
+.select-option:focus {
+  outline: none;
+  background: rgba(0, 255, 255, 0.1);
+}
+
+.select-option-selected {
+  background: rgba(0, 255, 255, 0.15);
+  color: var(--neon-cyan);
+}
+
+.select-option-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.select-option-disabled:hover {
+  background: transparent;
+}
+
+/* Error state */
+.select-error .select-trigger {
+  border-color: var(--neon-red);
+}
+
+.select-error .select-trigger:focus {
+  box-shadow: 0 0 10px rgba(255, 0, 68, 0.3);
+}
+
+.select-error-text {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--neon-red);
+}
+
+/* Disabled state */
+.select-disabled .select-trigger {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

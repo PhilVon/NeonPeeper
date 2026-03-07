@@ -1,0 +1,83 @@
+.data-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.data-table th {
+  text-align: left;
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: var(--font-size-xs);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-dark);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.data-table-sortable {
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.data-table-sortable:hover {
+  color: var(--text-primary);
+}
+
+.data-table-sort-icon {
+  margin-left: var(--spacing-xs);
+  font-size: 10px;
+  opacity: 0.5;
+}
+
+.data-table-sortable:hover .data-table-sort-icon {
+  opacity: 1;
+}
+
+.data-table td {
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--text-primary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.data-table-striped {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.data-table-hoverable:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.data-table-clickable {
+  cursor: pointer;
+}
+
+/* Row glow highlight on hover */
+.data-table-cyan .data-table-clickable:hover {
+  box-shadow: inset 3px 0 0 var(--neon-cyan);
+}
+
+.data-table-green .data-table-clickable:hover {
+  box-shadow: inset 3px 0 0 var(--neon-green);
+}
+
+.data-table-magenta .data-table-clickable:hover {
+  box-shadow: inset 3px 0 0 var(--neon-magenta);
+}
+
+.data-table-empty {
+  text-align: center;
+  padding: var(--spacing-lg) !important;
+  color: var(--text-muted);
+  font-style: italic;
+}

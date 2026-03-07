@@ -1,0 +1,54 @@
+.peer-card {
+  background: var(--bg-medium);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  transition: border-color var(--transition-fast);
+}
+
+.peer-card:hover {
+  border-color: var(--border-hover);
+}
+
+.peer-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.peer-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.peer-card-name {
+  display: block;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.peer-card-id {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.peer-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--spacing-sm);
+}
+
+.peer-card-meta-item {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.peer-card-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+}

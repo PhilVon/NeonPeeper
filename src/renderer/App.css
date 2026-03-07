@@ -1,0 +1,135 @@
+/* App-level styles */
+
+.app-container {
+  height: 100%;
+}
+
+.app-placeholder {
+  padding: var(--spacing-lg);
+}
+
+.app-placeholder h2 {
+  margin-bottom: var(--spacing-sm);
+}
+
+/* Peers page */
+.app-peers-page {
+  padding: var(--spacing-lg);
+}
+
+.app-peers-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-lg);
+}
+
+.app-peers-header h2 {
+  margin: 0;
+}
+
+.app-peers-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.app-peer-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-medium);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition-fast);
+}
+
+.app-peer-item:hover {
+  border-color: var(--border-hover);
+}
+
+.app-peer-name {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.app-peer-state {
+  font-size: var(--font-size-xs);
+}
+
+.app-peer-rtt {
+  font-size: var(--font-size-xs);
+}
+
+/* Settings */
+.app-settings {
+  padding: var(--spacing-lg);
+  max-width: 600px;
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-settings h2 {
+  margin-bottom: var(--spacing-md);
+  flex-shrink: 0;
+}
+
+.app-settings .tab-list {
+  flex-shrink: 0;
+  margin-bottom: var(--spacing-md);
+}
+
+.app-settings .tab-panel {
+  flex: 1;
+  min-height: 0;
+}
+
+.app-settings-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.app-settings-section h3 {
+  font-size: var(--font-size-md);
+  color: var(--neon-green);
+  margin-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: var(--spacing-xs);
+}
+
+.app-settings-field {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.app-settings-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* Call overlay */
+.app-call-overlay {
+  position: fixed;
+  top: 32px; /* Below title bar */
+  left: 0;
+  right: 0;
+  bottom: 24px; /* Above status bar */
+  z-index: var(--z-modal);
+  background: var(--bg-darkest);
+  display: flex;
+  flex-direction: column;
+}
+
+.app-settings-code {
+  font-size: var(--font-size-xs);
+  color: var(--neon-cyan);
+  background: var(--bg-darkest);
+  padding: 2px var(--spacing-xs);
+  border-radius: var(--radius-sm);
+  word-break: break-all;
+}

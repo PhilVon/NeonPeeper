@@ -1,0 +1,19 @@
+.main-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-darkest);
+}
+
+.main-layout-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.main-layout-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}

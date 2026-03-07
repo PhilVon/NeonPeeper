@@ -1,0 +1,23 @@
+.quality-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.quality-indicator-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+}
+
+.quality-indicator-bar {
+  width: 4px;
+  border-radius: 1px;
+  transition: background var(--transition-fast);
+}
+
+.quality-indicator-label {
+  font-size: var(--font-size-xs);
+  text-transform: capitalize;
+}

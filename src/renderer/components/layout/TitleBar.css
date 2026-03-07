@@ -1,0 +1,55 @@
+.titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  background: var(--bg-dark);
+  border-bottom: 1px solid var(--border-color);
+  user-select: none;
+  z-index: var(--z-titlebar);
+}
+
+.titlebar-drag {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding-left: var(--spacing-md);
+  -webkit-app-region: drag;
+}
+
+.titlebar-title {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.titlebar-controls {
+  display: flex;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-button {
+  width: 46px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.titlebar-button:hover {
+  background: var(--bg-medium);
+  color: var(--text-primary);
+}
+
+.titlebar-button-close:hover {
+  background: var(--neon-red);
+  color: white;
+}

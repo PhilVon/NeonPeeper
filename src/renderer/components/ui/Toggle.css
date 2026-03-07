@@ -1,0 +1,145 @@
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-track {
+  position: relative;
+  display: inline-block;
+  background: var(--bg-light);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  transition: all var(--transition-fast);
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  background: var(--text-secondary);
+  border-radius: 50%;
+  transition: all var(--transition-fast);
+}
+
+.toggle-label {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+/* Sizes */
+.toggle-small .toggle-track {
+  width: 28px;
+  height: 16px;
+}
+
+.toggle-small .toggle-thumb {
+  width: 10px;
+  height: 10px;
+}
+
+.toggle-small .toggle-label {
+  font-size: var(--font-size-xs);
+}
+
+.toggle-medium .toggle-track {
+  width: 40px;
+  height: 22px;
+}
+
+.toggle-medium .toggle-thumb {
+  width: 16px;
+  height: 16px;
+}
+
+.toggle-medium .toggle-label {
+  font-size: var(--font-size-sm);
+}
+
+.toggle-large .toggle-track {
+  width: 52px;
+  height: 28px;
+}
+
+.toggle-large .toggle-thumb {
+  width: 22px;
+  height: 22px;
+}
+
+.toggle-large .toggle-label {
+  font-size: var(--font-size-md);
+}
+
+/* Checked state */
+.toggle-input:checked + .toggle-track {
+  border-color: currentColor;
+}
+
+.toggle-small .toggle-input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(12px);
+}
+
+.toggle-medium .toggle-input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(18px);
+}
+
+.toggle-large .toggle-input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(24px);
+}
+
+/* Color variants - Cyan */
+.toggle-cyan .toggle-input:checked + .toggle-track {
+  background: rgba(0, 255, 255, 0.15);
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+.toggle-cyan .toggle-input:checked + .toggle-track .toggle-thumb {
+  background: var(--neon-cyan);
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+}
+
+/* Color variants - Green */
+.toggle-green .toggle-input:checked + .toggle-track {
+  background: rgba(0, 255, 136, 0.15);
+  border-color: var(--neon-green);
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+}
+
+.toggle-green .toggle-input:checked + .toggle-track .toggle-thumb {
+  background: var(--neon-green);
+  box-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
+}
+
+/* Color variants - Magenta */
+.toggle-magenta .toggle-input:checked + .toggle-track {
+  background: rgba(255, 0, 255, 0.15);
+  border-color: var(--neon-magenta);
+  box-shadow: 0 0 10px rgba(255, 0, 255, 0.3);
+}
+
+.toggle-magenta .toggle-input:checked + .toggle-track .toggle-thumb {
+  background: var(--neon-magenta);
+  box-shadow: 0 0 8px rgba(255, 0, 255, 0.5);
+}
+
+/* Focus state */
+.toggle-input:focus-visible + .toggle-track {
+  outline: 2px solid var(--neon-cyan);
+  outline-offset: 2px;
+}
+
+/* Disabled state */
+.toggle:has(.toggle-input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

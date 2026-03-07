@@ -1,0 +1,100 @@
+.collapsible {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.collapsible-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-medium);
+  border: none;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.collapsible-trigger:hover {
+  background: var(--bg-light);
+}
+
+.collapsible-trigger:focus {
+  outline: none;
+}
+
+.collapsible-trigger:focus-visible {
+  outline: 2px solid var(--neon-cyan);
+  outline-offset: -2px;
+}
+
+.collapsible-trigger-content {
+  flex: 1;
+}
+
+.collapsible-icon {
+  width: 12px;
+  height: 12px;
+  color: var(--text-secondary);
+  transition: transform var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.collapsible-open .collapsible-icon {
+  transform: rotate(180deg);
+}
+
+.collapsible-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--transition-normal);
+}
+
+.collapsible-content-open {
+  grid-template-rows: 1fr;
+}
+
+.collapsible-content-inner {
+  overflow: hidden;
+}
+
+.collapsible-content-padding {
+  padding: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+}
+
+/* Accordion styles */
+.accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.accordion-item {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.accordion-item-open {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.1);
+}
+
+.accordion-item .collapsible-trigger {
+  background: var(--bg-dark);
+}
+
+.accordion-item-open .collapsible-trigger {
+  color: var(--neon-cyan);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.accordion-item .collapsible-content-padding {
+  background: var(--bg-medium);
+}

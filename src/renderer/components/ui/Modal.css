@@ -1,0 +1,107 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  animation: fade-in 0.2s ease-out;
+}
+
+.modal {
+  background: var(--bg-dark);
+  border: 1px solid var(--neon-cyan);
+  border-radius: var(--radius-md);
+  box-shadow:
+    0 0 30px rgba(0, 255, 255, 0.2),
+    inset 0 0 60px rgba(0, 255, 255, 0.03);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  animation: power-on 0.3s ease-out;
+}
+
+/* Sizes */
+.modal-small {
+  width: 90%;
+  max-width: 360px;
+}
+
+.modal-medium {
+  width: 90%;
+  max-width: 500px;
+}
+
+.modal-large {
+  width: 90%;
+  max-width: 700px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-lg);
+  font-weight: 500;
+  color: var(--neon-cyan);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.modal-close svg {
+  width: 12px;
+  height: 12px;
+}
+
+.modal-close:hover {
+  border-color: var(--neon-red);
+  color: var(--neon-red);
+  box-shadow: 0 0 10px rgba(255, 0, 68, 0.3);
+}
+
+.modal-close:focus {
+  outline: none;
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+.modal-content {
+  padding: var(--spacing-md);
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+}

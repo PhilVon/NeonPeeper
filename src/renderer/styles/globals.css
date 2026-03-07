@@ -1,0 +1,129 @@
+/* Global Reset & Base Styles */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  background-color: var(--bg-darkest);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling - Neon theme */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+  border-left: 1px solid var(--border-color);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--bg-light) 0%, var(--border-color) 100%);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(0, 255, 255, 0.3) 0%, rgba(0, 255, 255, 0.1) 100%);
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--bg-dark);
+}
+
+/* Scrollbar color variants (apply to container) */
+.scrollbar-cyan::-webkit-scrollbar-thumb {
+  border-color: rgba(0, 255, 255, 0.3);
+}
+.scrollbar-cyan::-webkit-scrollbar-thumb:hover {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+}
+
+.scrollbar-green::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(0, 255, 136, 0.3) 0%, rgba(0, 255, 136, 0.1) 100%);
+  border-color: var(--neon-green);
+  box-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
+}
+
+.scrollbar-magenta::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(255, 0, 255, 0.3) 0%, rgba(255, 0, 255, 0.1) 100%);
+  border-color: var(--neon-magenta);
+  box-shadow: 0 0 8px rgba(255, 0, 255, 0.5);
+}
+
+/* Selection */
+::selection {
+  background: rgba(0, 255, 255, 0.3);
+  color: var(--text-primary);
+}
+
+/* Links */
+a {
+  color: var(--neon-cyan);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--neon-green);
+  text-shadow: var(--glow-cyan);
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--neon-cyan);
+  outline-offset: 2px;
+}
+
+/* Utility classes */
+.text-cyan { color: var(--neon-cyan); }
+.text-green { color: var(--neon-green); }
+.text-magenta { color: var(--neon-magenta); }
+.text-yellow { color: var(--neon-yellow); }
+.text-orange { color: var(--neon-orange); }
+.text-red { color: var(--neon-red); }
+.text-muted { color: var(--text-muted); }
+
+.glow-cyan { text-shadow: var(--glow-cyan); }
+.glow-green { text-shadow: var(--glow-green); }
+.glow-magenta { text-shadow: var(--glow-magenta); }
+
+/* Code blocks */
+code {
+  font-family: var(--font-mono);
+  background: var(--bg-dark);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+pre {
+  font-family: var(--font-mono);
+  background: var(--bg-dark);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}

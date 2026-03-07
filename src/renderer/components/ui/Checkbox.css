@@ -1,0 +1,125 @@
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.checkbox-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-light);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.checkbox-icon {
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all var(--transition-fast);
+}
+
+.checkbox-label {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+/* Sizes */
+.checkbox-small .checkbox-box {
+  width: 14px;
+  height: 14px;
+}
+
+.checkbox-small .checkbox-icon {
+  width: 10px;
+  height: 10px;
+}
+
+.checkbox-small .checkbox-label {
+  font-size: var(--font-size-xs);
+}
+
+.checkbox-medium .checkbox-box {
+  width: 18px;
+  height: 18px;
+}
+
+.checkbox-medium .checkbox-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.checkbox-medium .checkbox-label {
+  font-size: var(--font-size-sm);
+}
+
+.checkbox-large .checkbox-box {
+  width: 22px;
+  height: 22px;
+}
+
+.checkbox-large .checkbox-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.checkbox-large .checkbox-label {
+  font-size: var(--font-size-md);
+}
+
+/* Checked state */
+.checkbox-input:checked + .checkbox-box .checkbox-icon {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Color variants - Cyan */
+.checkbox-cyan .checkbox-input:checked + .checkbox-box {
+  background: rgba(0, 255, 255, 0.15);
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.3);
+}
+
+/* Color variants - Green */
+.checkbox-green .checkbox-input:checked + .checkbox-box {
+  background: rgba(0, 255, 136, 0.15);
+  border-color: var(--neon-green);
+  color: var(--neon-green);
+  box-shadow: 0 0 8px rgba(0, 255, 136, 0.3);
+}
+
+/* Color variants - Magenta */
+.checkbox-magenta .checkbox-input:checked + .checkbox-box {
+  background: rgba(255, 0, 255, 0.15);
+  border-color: var(--neon-magenta);
+  color: var(--neon-magenta);
+  box-shadow: 0 0 8px rgba(255, 0, 255, 0.3);
+}
+
+/* Hover state */
+.checkbox:hover .checkbox-box {
+  border-color: var(--border-hover);
+}
+
+/* Focus state */
+.checkbox-input:focus-visible + .checkbox-box {
+  outline: 2px solid var(--neon-cyan);
+  outline-offset: 2px;
+}
+
+/* Disabled state */
+.checkbox:has(.checkbox-input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

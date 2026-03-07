@@ -1,0 +1,74 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid;
+}
+
+/* Sizes */
+.badge-small {
+  padding: 2px var(--spacing-xs);
+  font-size: 10px;
+}
+
+.badge-medium {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-xs);
+}
+
+/* Variants */
+.badge-default {
+  background: rgba(160, 160, 160, 0.1);
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
+}
+
+.badge-success {
+  background: rgba(0, 255, 136, 0.1);
+  border-color: var(--neon-green);
+  color: var(--neon-green);
+}
+
+.badge-warning {
+  background: rgba(255, 136, 0, 0.1);
+  border-color: var(--neon-orange);
+  color: var(--neon-orange);
+}
+
+.badge-danger {
+  background: rgba(255, 0, 68, 0.1);
+  border-color: var(--neon-red);
+  color: var(--neon-red);
+}
+
+.badge-info {
+  background: rgba(0, 255, 255, 0.1);
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+}
+
+/* Glow effect */
+.badge-glow.badge-default {
+  box-shadow: 0 0 8px rgba(160, 160, 160, 0.3);
+}
+
+.badge-glow.badge-success {
+  box-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+}
+
+.badge-glow.badge-warning {
+  box-shadow: 0 0 8px rgba(255, 136, 0, 0.4);
+}
+
+.badge-glow.badge-danger {
+  box-shadow: 0 0 8px rgba(255, 0, 68, 0.4);
+}
+
+.badge-glow.badge-info {
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
+}

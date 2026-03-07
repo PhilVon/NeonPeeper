@@ -1,0 +1,7 @@
+.network-settings h3 {
+  font-size: var(--font-size-md);
+  color: var(--neon-green);
+  margin-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: var(--spacing-xs);
+}

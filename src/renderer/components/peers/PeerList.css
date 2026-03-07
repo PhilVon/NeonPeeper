@@ -1,0 +1,29 @@
+.peer-list {
+  padding: var(--spacing-lg);
+}
+
+.peer-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-lg);
+}
+
+.peer-list-header h2 {
+  margin: 0;
+}
+
+.peer-list-empty {
+  text-align: center;
+  padding: var(--spacing-xl);
+}
+
+.peer-list-empty p {
+  margin-bottom: var(--spacing-xs);
+}
+
+.peer-list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--spacing-md);
+}

@@ -1,0 +1,89 @@
+.progress-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+}
+
+.progress-bar-track {
+  flex: 1;
+  background: var(--bg-darkest);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.progress-bar-small .progress-bar-track { height: 8px; }
+.progress-bar-medium .progress-bar-track { height: 12px; }
+.progress-bar-large .progress-bar-track { height: 16px; }
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-sm);
+  transition: width 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar-cyan .progress-bar-fill {
+  background: linear-gradient(90deg, var(--neon-cyan), rgba(0, 255, 255, 0.7));
+}
+
+.progress-bar-green .progress-bar-fill {
+  background: linear-gradient(90deg, var(--neon-green), rgba(0, 255, 136, 0.7));
+}
+
+.progress-bar-magenta .progress-bar-fill {
+  background: linear-gradient(90deg, var(--neon-magenta), rgba(255, 0, 128, 0.7));
+}
+
+.progress-bar-red .progress-bar-fill {
+  background: linear-gradient(90deg, var(--neon-red), rgba(255, 0, 68, 0.7));
+}
+
+/* Glow */
+.progress-bar-glow.progress-bar-cyan .progress-bar-track {
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.3);
+}
+
+.progress-bar-glow.progress-bar-green .progress-bar-track {
+  box-shadow: 0 0 8px rgba(0, 255, 136, 0.3);
+}
+
+.progress-bar-glow.progress-bar-magenta .progress-bar-track {
+  box-shadow: 0 0 8px rgba(255, 0, 128, 0.3);
+}
+
+.progress-bar-glow.progress-bar-red .progress-bar-track {
+  box-shadow: 0 0 8px rgba(255, 0, 68, 0.3);
+}
+
+/* Shimmer animation */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.progress-bar-animated .progress-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.25) 50%,
+    transparent 100%
+  );
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.progress-bar-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  min-width: 3ch;
+  text-align: right;
+}

@@ -1,0 +1,80 @@
+.neon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.neon-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Sizes */
+.neon-button-small {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-xs);
+}
+
+.neon-button-medium {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-sm);
+}
+
+.neon-button-large {
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-size: var(--font-size-md);
+}
+
+/* Primary variant - Cyan */
+.neon-button-primary {
+  background: transparent;
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+}
+
+.neon-button-primary:hover:not(:disabled) {
+  background: rgba(0, 255, 255, 0.1);
+}
+
+.neon-button-primary.neon-button-glow:hover:not(:disabled) {
+  box-shadow: var(--glow-cyan);
+}
+
+/* Secondary variant - Green */
+.neon-button-secondary {
+  background: transparent;
+  border-color: var(--neon-green);
+  color: var(--neon-green);
+}
+
+.neon-button-secondary:hover:not(:disabled) {
+  background: rgba(0, 255, 136, 0.1);
+}
+
+.neon-button-secondary.neon-button-glow:hover:not(:disabled) {
+  box-shadow: var(--glow-green);
+}
+
+/* Danger variant - Red */
+.neon-button-danger {
+  background: transparent;
+  border-color: var(--neon-red);
+  color: var(--neon-red);
+}
+
+.neon-button-danger:hover:not(:disabled) {
+  background: rgba(255, 0, 68, 0.1);
+}
+
+.neon-button-danger.neon-button-glow:hover:not(:disabled) {
+  box-shadow: var(--glow-red);
+}

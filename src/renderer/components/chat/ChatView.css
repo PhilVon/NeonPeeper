@@ -1,0 +1,23 @@
+.chat-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.chat-view-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-sm) 0;
+}
+
+.chat-view-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.chat-view-empty p {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}

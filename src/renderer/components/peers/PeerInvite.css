@@ -1,0 +1,43 @@
+.peer-invite-step {
+  padding: var(--spacing-md) 0;
+}
+
+.peer-invite-description {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--spacing-md);
+  line-height: 1.5;
+}
+
+.peer-invite-code-section {
+  margin-bottom: var(--spacing-md);
+}
+
+.peer-invite-label {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--neon-cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--spacing-xs);
+}
+
+.peer-invite-code textarea {
+  font-size: var(--font-size-xs);
+  word-break: break-all;
+}
+
+.peer-invite-code-section .neon-button {
+  margin-top: var(--spacing-xs);
+}
+
+.peer-invite-done {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+}
+
+.peer-invite-done p {
+  font-size: var(--font-size-lg);
+}
