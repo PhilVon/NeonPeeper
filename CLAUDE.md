@@ -33,14 +33,14 @@ src/
 ├── renderer/          # React application (Chromium context)
 │   ├── components/
 │   │   ├── chat/      # ChatView, ChatList, ChatInput, ChatMessage, ChatHeader, TypingIndicator, GroupMemberList
-│   │   ├── media/     # VideoGrid, VideoTile, MediaControls, DeviceSelector, ScreenShareView, ScreenSourcePicker, QualityIndicator
+│   │   ├── media/     # ChatVideoPanel, VideoGrid, VideoTile, MediaControls, DeviceSelector, ScreenShareView, ScreenSourcePicker, QualityIndicator
 │   │   ├── peers/     # PeerList, PeerCard, PeerInvite, ConnectionDialog
 │   │   ├── settings/  # MediaSettings, NetworkSettings, QualitySettings
 │   │   ├── layout/    # MainLayout, TitleBar, Sidebar, StatusBar, SplitPane, ResizablePanel, Collapsible
 │   │   ├── ui/        # NeonButton, NeonCard, NeonInput, Modal, Toast, Tabs, Avatar, Badge, DataTable, etc.
 │   │   ├── demo/      # DemoSuite with pages for component showcase
 │   │   └── utils/     # Portal
-│   ├── hooks/         # useClickOutside, useEscapeKey, useFocusTrap, useMediaStream, useTypingEffect, useTextScramble, useCountUp, useReplayAnimation
+│   ├── hooks/         # useClickOutside, useEscapeKey, useFocusTrap, useMediaStream, useSpeakingDetection, useTypingEffect, useTextScramble, useCountUp, useReplayAnimation
 │   ├── services/      # ConnectionManager, MessageRouter, MediaManager, CryptoManager, SignalingClient, PersistenceManager, PerformanceMonitor, SFUClient
 │   ├── store/         # Zustand stores (chat, connection, media, peer, performance, settings, toast, ui)
 │   ├── styles/        # CSS variables, globals, animations
@@ -63,7 +63,7 @@ Sidebar tabs: **Peers** (default), **Chats**, **Demo**, **Settings**
 - **Demo** — `DemoSuite` component showcase (buttons, forms, effects, layout, etc.)
 - **Settings** — Profile (display name, peer ID, signaling URL), Media, Network sub-tabs
 
-Video call overlay (`VideoGrid` + `MediaControls`) renders when `inCall === true`. Modals: `PeerInvite` (manual SDP), `ScreenSourcePicker`.
+Per-chat video panels (`ChatVideoPanel` via `SplitPane`) render inline when video/audio is active in a chat. Modals: `PeerInvite` (manual SDP), `ScreenSourcePicker` (per-chat). App.tsx wires adaptive bitrate (PerformanceMonitor) and auto-reconnection (exponential backoff).
 
 ### Security Model
 
@@ -90,9 +90,9 @@ Envelope: `NeonP2PMessage<T>` with `version`, `type`, `id`, `from`, `to`, `chatI
 
 All services are singletons accessed via `getXxxManager()` / `getXxxClient()`.
 
-- **ConnectionManager** — WebRTC peer connections with two modes: manual SDP exchange and signaling-assisted trickle ICE. Two data channels per peer: `control` (reliable) and `ephemeral` (unreliable). PING/PONG keepalive (15s interval).
-- **MessageRouter** — Parses DataChannel messages, validates protocol version, deduplicates by message ID (capped at 10K), dispatches to typed handlers. Auto-creates chats, sends `TEXT_ACK`, handles media negotiation.
-- **MediaManager** — Camera/mic/screen capture via `navigator.mediaDevices`. Hot-swaps tracks on active connections via `replaceTrack`. Adaptive bitrate via `RTCRtpSender.setParameters`.
+- **ConnectionManager** — WebRTC peer connections with two modes: manual SDP exchange and signaling-assisted trickle ICE. Two data channels per peer: `control` (reliable) and `ephemeral` (unreliable). PING/PONG keepalive (15s interval). Configurable ICE servers (STUN/TURN from settings). Message signing via CryptoManager. User-initiated close tracking for auto-reconnection.
+- **MessageRouter** — Parses DataChannel messages, validates protocol version, deduplicates by message ID (capped at 10K), dispatches to typed handlers. Auto-creates chats, sends `TEXT_ACK`, handles media negotiation. Signature verification with TOFU key pinning. Structured error responses with error codes.
+- **MediaManager** — Camera/mic/screen capture via `navigator.mediaDevices`. Mic-only mode for audio calls. Hot-swaps tracks on active connections via `replaceTrack`. Adaptive bitrate via `RTCRtpSender.setParameters`. Codec preference application via `setCodecPreferences`.
 - **SignalingClient** — WebSocket client for peer discovery. Auto-reconnects with exponential backoff (max 10 attempts). Registers, discovers peers, relays offers/answers/ICE candidates.
 - **PersistenceManager** — IndexedDB via `idb` library (database: `neon-peeper-chat`). Stores: `messages` and `chats` with indexes for pagination and filtering.
 - **CryptoManager** — Web Crypto API for Ed25519/P-256 signing, TOFU trust, safety numbers, passphrase-encrypted key storage.
@@ -105,7 +105,7 @@ All services are singletons accessed via `getXxxManager()` / `getXxxClient()`.
 |-------|-----------|-------------|
 | `chat-store` | `chats`, `messages`, `activeChatId`, `typing` | IndexedDB (via PersistenceManager) |
 | `connection-store` | `connections` (state, ICE, RTT, reconnects) | Memory only |
-| `media-store` | Local/remote streams, mute state, `inCall`, quality | Memory only |
+| `media-store` | Local/remote streams, mute state, per-chat video sharing, quality | Memory only |
 | `peer-store` | `localProfile`, `peers` | Memory only |
 | `performance-store` | Per-peer stats, aggregate quality | Memory only |
 | `settings-store` | Display name, signaling URL, quality, devices, TURN/STUN | localStorage (`neon-peeper-settings`) |
