@@ -9,7 +9,6 @@ type EventCallback = (...args: unknown[]) => void
 
 interface DiscoveredPeer {
   peerId: string
-  displayName: string
 }
 
 export class SignalingClient {
@@ -63,13 +62,12 @@ export class SignalingClient {
       this.setState('connected')
       this.reconnectAttempts = 0
 
-      // Register
+      // Register (no displayName — revealed only after verification)
       const profile = usePeerStore.getState().localProfile
       if (profile) {
         this.send({
           type: 'register',
           peerId: profile.id,
-          displayName: profile.displayName,
         })
       }
 
@@ -164,13 +162,13 @@ export class SignalingClient {
         this.discoveredPeers = (msg.peers as DiscoveredPeer[]) || []
         this.emit('peer-list', this.discoveredPeers)
 
-        // Update peer store with discovered peers
+        // Update peer store with discovered peers (no displayName until verified)
         for (const peer of this.discoveredPeers) {
           const existing = usePeerStore.getState().peers.get(peer.peerId)
           if (!existing) {
             usePeerStore.getState().upsertPeer({
               id: peer.peerId,
-              displayName: peer.displayName,
+              displayName: '',
               publicKey: '',
               capabilities: [],
               firstSeen: Date.now(),
@@ -209,20 +207,22 @@ export class SignalingClient {
 
       case 'peer-joined': {
         const peerId = msg.peerId as string
-        const displayName = msg.displayName as string
         if (msg.roomId) {
           // Room-scoped event — don't update global peer store
-          this.emit('room-peer-joined', msg.roomId, peerId, displayName)
+          this.emit('room-peer-joined', msg.roomId, peerId)
         } else {
-          usePeerStore.getState().upsertPeer({
-            id: peerId,
-            displayName,
-            publicKey: '',
-            capabilities: [],
-            firstSeen: Date.now(),
-            lastSeen: Date.now(),
-          })
-          this.emit('peer-joined', peerId, displayName)
+          const existing = usePeerStore.getState().peers.get(peerId)
+          if (!existing) {
+            usePeerStore.getState().upsertPeer({
+              id: peerId,
+              displayName: '',
+              publicKey: '',
+              capabilities: [],
+              firstSeen: Date.now(),
+              lastSeen: Date.now(),
+            })
+          }
+          this.emit('peer-joined', peerId)
         }
         break
       }

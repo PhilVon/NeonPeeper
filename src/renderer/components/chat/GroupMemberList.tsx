@@ -30,7 +30,8 @@ export function GroupMemberList({ members, onInvite, onRemove }: GroupMemberList
           const peer = peers.get(memberId)
           const isLocal = memberId === localId
           const conn = connections.get(memberId)
-          const status: 'online' | 'offline' = isLocal || conn?.connectionState === 'connected'
+          const cs = conn?.connectionState
+          const status: 'online' | 'offline' = isLocal || cs === 'connected' || cs === 'verified'
             ? 'online'
             : 'offline'
 

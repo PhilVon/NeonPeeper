@@ -39,7 +39,10 @@ A peer-to-peer chat and video calling desktop application with a cyberpunk/neon 
 ### Security
 - **Ed25519 Signing** — Automatic keypair generation with message signing and verification
 - **TOFU Key Pinning** — Trust-on-first-use identity verification with change alerts
-- **Safety Numbers** — Verify peer identity out-of-band with a visual verification dialog and verified badge
+- **Short Verification Codes** — Verify peer identity out-of-band with an 8-digit `XXXX-XXXX` code; mutual verification required before chat access
+- **Trust-Gated Chat** — Chat, file transfer, and presence features are blocked until both peers complete mutual verification; profile info (display name, avatar) is withheld until verified
+- **Privacy-Preserving Discovery** — Signaling server broadcasts only peer IDs, never display names or profile data
+- **Auto-Restore Verification** — Reconnecting peers with the same public key automatically restore verified status without re-verification
 - **End-to-End Encryption** — Optional E2E encryption using ECDH P-256 key exchange and AES-256-GCM, with a per-message lock icon indicator
 - **Ephemeral Messages** — Auto-delete sent messages after a configurable TTL (30s to 7d); both sender and receiver delete independently
 - **Context Isolation** — Electron security best practices with `contextIsolation: true` and `nodeIntegration: false`
@@ -133,11 +136,12 @@ signaling-server/    # Standalone WebSocket signaling server
 
 ## Protocol
 
-Neon Peeper uses the **NEONP2P/1.0** protocol with 29 message types across 7 categories:
+Neon Peeper uses the **NEONP2P/1.0** protocol with 31 message types across 8 categories:
 
 | Category | Types |
 |----------|-------|
 | Connection | `HELLO`, `HELLO_ACK`, `PING`, `PONG`, `DISCONNECT` |
+| Trust | `VERIFY_CONFIRM`, `PROFILE_REVEAL` |
 | Text | `TEXT`, `TEXT_ACK`, `TEXT_EDIT`, `TEXT_DELETE` |
 | Presence | `TYPING_START`, `TYPING_STOP`, `STATUS_UPDATE`, `PROFILE_UPDATE` |
 | Chat | `CHAT_CREATE`, `CHAT_INVITE`, `CHAT_JOIN`, `CHAT_LEAVE`, `CHAT_SYNC` |
@@ -145,7 +149,7 @@ Neon Peeper uses the **NEONP2P/1.0** protocol with 29 message types across 7 cat
 | File Transfer | `FILE_OFFER`, `FILE_ACCEPT`, `FILE_CHUNK`, `FILE_COMPLETE` |
 | Error | `ERROR` |
 
-Messages are signed with Ed25519 when signing is enabled. Text messages support optional E2E encryption via ECDH key exchange and AES-256-GCM. Error responses use structured codes (1000-6099) covering connection, message, chat, media, security, and file transfer categories.
+Messages are signed with Ed25519 when signing is enabled. Text messages support optional E2E encryption via ECDH key exchange and AES-256-GCM. Error responses use structured codes (1000-6099) covering connection, message, chat, media, security, and file transfer categories. Chat, file, and presence messages are gated behind mutual peer verification (`VERIFICATION_REQUIRED` error 5004).
 
 ## Current Status
 
@@ -175,7 +179,8 @@ Messages are signed with Ed25519 when signing is enabled. Text messages support 
 - [x] Native desktop notifications
 - [x] Auto read receipts via scroll visibility
 - [x] Off-screen video pause
-- [x] Safety number verification UI
+- [x] Short verification codes (`XXXX-XXXX`) with mutual verification
+- [x] Trust-gated chat (profile withheld until verified)
 - [x] Accessibility (ARIA, keyboard navigation)
 - [x] SFU support for large group calls (mediasoup, auto topology switch at 7+ peers)
 - [ ] Packaged desktop builds (Windows, macOS, Linux)

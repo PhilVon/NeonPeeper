@@ -41,6 +41,8 @@ export class MessageRouter {
     this.registerHandler('PING', this.handlePing.bind(this))
     this.registerHandler('PONG', this.handlePong.bind(this))
     this.registerHandler('DISCONNECT', this.handleDisconnect.bind(this))
+    this.registerHandler('VERIFY_CONFIRM', this.handleVerifyConfirm.bind(this))
+    this.registerHandler('PROFILE_REVEAL', this.handleProfileReveal.bind(this))
     this.registerHandler('ERROR', this.handleError.bind(this))
 
     // Phase 2: Chat message handlers
@@ -140,6 +142,22 @@ export class MessageRouter {
       }
     }
 
+    // Verification guard: reject gated messages from non-verified peers
+    const GATED_TYPES: MessageType[] = [
+      'TEXT', 'TEXT_EDIT', 'TEXT_DELETE',
+      'TYPING_START', 'TYPING_STOP',
+      'CHAT_CREATE', 'CHAT_INVITE', 'CHAT_JOIN', 'CHAT_LEAVE', 'CHAT_SYNC',
+      'STATUS_UPDATE', 'PROFILE_UPDATE',
+      'FILE_OFFER', 'FILE_ACCEPT', 'FILE_CHUNK', 'FILE_COMPLETE',
+    ]
+    if (GATED_TYPES.includes(message.type)) {
+      const connState = useConnectionStore.getState().getConnection(peerId)?.connectionState
+      if (connState !== 'verified') {
+        this.sendError(peerId, ERROR_CODES.VERIFICATION_REQUIRED, 'Verification required before sending this message type', message.id)
+        return
+      }
+    }
+
     // Dispatch to handlers
     const handlers = this.handlers.get(message.type)
     if (handlers) {
@@ -177,82 +195,107 @@ export class MessageRouter {
     const payload = message.payload
     const peerStore = usePeerStore.getState()
     const now = Date.now()
+    const crypto = getCryptoManager()
+    const cm = getConnectionManager()
 
-    // Store peer profile
+    // Store peer with empty profile (withheld until verification)
+    const existing = peerStore.peers.get(message.from)
     peerStore.upsertPeer({
       id: message.from,
-      displayName: payload.displayName,
+      displayName: existing?.displayName || '',
       publicKey: payload.publicKey,
-      capabilities: payload.capabilities,
-      firstSeen: now,
+      capabilities: existing?.capabilities || [],
+      firstSeen: existing?.firstSeen || now,
       lastSeen: now,
-      avatarDataUrl: payload.avatarDataUrl,
-      audioBitrate: payload.audioBitrate,
+      avatarDataUrl: existing?.avatarDataUrl,
+      audioBitrate: existing?.audioBitrate,
     })
 
     // TOFU key pinning
     if (payload.publicKey) {
-      const { changed } = getCryptoManager().trustPeer(message.from, payload.publicKey)
+      const { changed } = crypto.trustPeer(message.from, payload.publicKey)
       if (changed) {
-        toast.warning(`Identity key changed for ${payload.displayName}! Possible impersonation.`)
+        toast.warning(`Identity key changed for peer ${message.from.slice(0, 8)}! Possible impersonation.`)
       }
     }
 
     // Derive shared key for E2E encryption
     if (payload.dhPublicKey) {
-      getCryptoManager().deriveSharedKey(message.from, payload.dhPublicKey).catch(() => {})
+      crypto.deriveSharedKey(message.from, payload.dhPublicKey).catch(() => {})
     }
 
-    // Send HELLO_ACK
+    // Send HELLO_ACK (no profile info)
     const localProfile = peerStore.localProfile
     if (!localProfile) return
 
-    const dhPublicKey = getCryptoManager().getDHPublicKeyHex() || undefined
+    const dhPublicKey = crypto.getDHPublicKeyHex() || undefined
 
     const ackMsg = createMessage('HELLO_ACK', localProfile.id, message.from, {
-      displayName: localProfile.displayName,
+      displayName: '',
       publicKey: localProfile.publicKey,
-      capabilities: localProfile.capabilities,
+      capabilities: [],
       ackedPeerId: message.from,
-      avatarDataUrl: localProfile.avatarDataUrl,
-      audioBitrate: localProfile.audioBitrate,
       dhPublicKey,
     })
 
-    getConnectionManager().sendMessage(peerId, ackMsg)
-    useConnectionStore.getState().setConnectionState(peerId, 'connected')
+    cm.sendMessage(peerId, ackMsg)
+
+    // Auto-restore: if previously mutually verified with same key, restore verified state
+    if (crypto.isMutuallyVerified(message.from)) {
+      useConnectionStore.getState().setConnectionState(peerId, 'verified')
+      // Re-send VERIFY_CONFIRM + PROFILE_REVEAL
+      const verifyMsg = createMessage('VERIFY_CONFIRM', localProfile.id, message.from, { verified: true })
+      cm.sendMessage(peerId, verifyMsg)
+      cm.sendProfileReveal(peerId)
+    } else {
+      useConnectionStore.getState().setConnectionState(peerId, 'connected')
+    }
     useConnectionStore.getState().resetReconnectAttempts(peerId)
   }
 
   private handleHelloAck(message: NeonP2PMessage<'HELLO_ACK'>, peerId: string): void {
     const payload = message.payload
     const now = Date.now()
+    const crypto = getCryptoManager()
+    const cm = getConnectionManager()
 
+    const existing = usePeerStore.getState().peers.get(message.from)
     usePeerStore.getState().upsertPeer({
       id: message.from,
-      displayName: payload.displayName,
+      displayName: existing?.displayName || '',
       publicKey: payload.publicKey,
-      capabilities: payload.capabilities,
-      firstSeen: now,
+      capabilities: existing?.capabilities || [],
+      firstSeen: existing?.firstSeen || now,
       lastSeen: now,
-      avatarDataUrl: payload.avatarDataUrl,
-      audioBitrate: payload.audioBitrate,
+      avatarDataUrl: existing?.avatarDataUrl,
+      audioBitrate: existing?.audioBitrate,
     })
 
     // TOFU key pinning
     if (payload.publicKey) {
-      const { changed } = getCryptoManager().trustPeer(message.from, payload.publicKey)
+      const { changed } = crypto.trustPeer(message.from, payload.publicKey)
       if (changed) {
-        toast.warning(`Identity key changed for ${payload.displayName}! Possible impersonation.`)
+        toast.warning(`Identity key changed for peer ${message.from.slice(0, 8)}! Possible impersonation.`)
       }
     }
 
     // Derive shared key for E2E encryption
     if (payload.dhPublicKey) {
-      getCryptoManager().deriveSharedKey(message.from, payload.dhPublicKey).catch(() => {})
+      crypto.deriveSharedKey(message.from, payload.dhPublicKey).catch(() => {})
     }
 
-    useConnectionStore.getState().setConnectionState(peerId, 'connected')
+    // Auto-restore: if previously mutually verified with same key, restore verified state
+    if (crypto.isMutuallyVerified(message.from)) {
+      useConnectionStore.getState().setConnectionState(peerId, 'verified')
+      const localProfile = usePeerStore.getState().localProfile
+      if (localProfile) {
+        const verifyMsg = createMessage('VERIFY_CONFIRM', localProfile.id, message.from, { verified: true })
+        cm.sendMessage(peerId, verifyMsg)
+      }
+      cm.sendProfileReveal(peerId)
+    } else {
+      useConnectionStore.getState().setConnectionState(peerId, 'connected')
+    }
     useConnectionStore.getState().resetReconnectAttempts(peerId)
   }
 
@@ -282,6 +325,40 @@ export class MessageRouter {
 
   private handleError(message: NeonP2PMessage<'ERROR'>, _peerId: string): void {
     console.error(`[MessageRouter] Error from ${message.from}: [${message.payload.code}] ${message.payload.message}`)
+  }
+
+  // --- Trust handlers ---
+
+  private handleVerifyConfirm(message: NeonP2PMessage<'VERIFY_CONFIRM'>, peerId: string): void {
+    const crypto = getCryptoManager()
+    const cm = getConnectionManager()
+
+    // Mark that the remote peer has verified us
+    crypto.markRemoteVerified(message.from)
+
+    // If now mutually verified, send PROFILE_REVEAL and set verified state
+    if (crypto.isMutuallyVerified(message.from)) {
+      useConnectionStore.getState().setConnectionState(peerId, 'verified')
+      cm.sendProfileReveal(peerId)
+      toast.success(`Mutual verification complete with peer ${message.from.slice(0, 8)}`)
+    }
+  }
+
+  private handleProfileReveal(message: NeonP2PMessage<'PROFILE_REVEAL'>, _peerId: string): void {
+    const payload = message.payload
+    const peer = usePeerStore.getState().peers.get(message.from)
+    if (!peer) return
+
+    usePeerStore.getState().upsertPeer({
+      ...peer,
+      displayName: payload.displayName,
+      capabilities: payload.capabilities,
+      avatarDataUrl: payload.avatarDataUrl,
+      audioBitrate: payload.audioBitrate,
+      lastSeen: Date.now(),
+    })
+
+    toast.info(`${payload.displayName} revealed their profile`)
   }
 
   // --- Phase 2: Chat handlers ---

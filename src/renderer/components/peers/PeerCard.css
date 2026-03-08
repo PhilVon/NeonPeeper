@@ -54,6 +54,11 @@
   font-size: var(--font-size-sm);
 }
 
+.peer-card-awaiting {
+  color: var(--neon-cyan);
+  font-style: italic;
+}
+
 .peer-card-actions {
   display: flex;
   gap: var(--spacing-xs);

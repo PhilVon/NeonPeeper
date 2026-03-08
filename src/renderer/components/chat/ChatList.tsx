@@ -60,7 +60,8 @@ export function ChatList({ onNewChat }: ChatListProps) {
     const otherMember = chat.members.find((m) => m !== localId)
     if (!otherMember) return 'offline'
     const conn = connections.get(otherMember)
-    return conn?.connectionState === 'connected' ? 'online' : 'offline'
+    const cs = conn?.connectionState
+    return (cs === 'connected' || cs === 'verified') ? 'online' : 'offline'
   }
 
   return (

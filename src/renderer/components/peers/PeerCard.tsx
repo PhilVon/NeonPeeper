@@ -21,11 +21,13 @@ function formatTime(timestamp: number): string {
 
 export function PeerCard({ peer, onChat, onConnect }: PeerCardProps) {
   const connection = useConnectionStore((s) => s.connections.get(peer.id))
-  const isConnected = connection?.connectionState === 'connected'
-  const isConnecting = connection?.connectionState === 'connecting' || connection?.connectionState === 'signaling'
+  const connState = connection?.connectionState
+  const isConnected = connState === 'connected' || connState === 'verified'
+  const isVerifiedState = connState === 'verified'
+  const isConnecting = connState === 'connecting' || connState === 'signaling'
   const [showVerify, setShowVerify] = useState(false)
 
-  const isVerified = getCryptoManager().isVerified(peer.id)
+  const isLocallyVerified = getCryptoManager().isVerified(peer.id)
 
   const status: 'online' | 'offline' | 'busy' | 'idle' = isConnected
     ? (peer.status ?? 'online')
@@ -33,14 +35,21 @@ export function PeerCard({ peer, onChat, onConnect }: PeerCardProps) {
     ? 'busy'
     : 'offline'
 
+  // Display name: show real name only when verified, otherwise "Unverified Peer"
+  const displayLabel = isVerifiedState && peer.displayName
+    ? peer.displayName
+    : isConnected
+    ? 'Unverified Peer'
+    : peer.displayName || peer.id.slice(0, 12) + '...'
+
   return (
-    <div className="peer-card" role="article" aria-label={`${peer.displayName}, ${status}`} tabIndex={0}>
+    <div className="peer-card" role="article" aria-label={`${displayLabel}, ${status}`} tabIndex={0}>
       <div className="peer-card-header">
-        <Avatar name={peer.displayName} src={peer.avatarDataUrl} size="medium" status={status} />
+        <Avatar name={displayLabel} src={isVerifiedState ? peer.avatarDataUrl : undefined} size="medium" status={status} />
         <div className="peer-card-info">
           <span className="peer-card-name">
-            {peer.displayName}
-            {isVerified && <span className="peer-card-verified" title="Verified">&#10003;</span>}
+            {displayLabel}
+            {isVerifiedState && <span className="peer-card-verified" title="Verified">&#10003;</span>}
           </span>
           <span className="peer-card-id">{peer.id.slice(0, 16)}...</span>
         </div>
@@ -53,13 +62,18 @@ export function PeerCard({ peer, onChat, onConnect }: PeerCardProps) {
         <span className="peer-card-meta-item">
           Last seen: {formatTime(peer.lastSeen)}
         </span>
+        {isConnected && !isVerifiedState && isLocallyVerified && (
+          <span className="peer-card-meta-item peer-card-awaiting">Awaiting remote verification...</span>
+        )}
       </div>
       <div className="peer-card-actions">
         {isConnected ? (
           <>
-            <NeonButton size="small" onClick={() => onChat?.(peer.id)}>
-              Chat
-            </NeonButton>
+            {isVerifiedState && (
+              <NeonButton size="small" onClick={() => onChat?.(peer.id)}>
+                Chat
+              </NeonButton>
+            )}
             <NeonButton size="small" variant="secondary" onClick={() => setShowVerify(true)}>
               Verify
             </NeonButton>

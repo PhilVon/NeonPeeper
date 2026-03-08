@@ -3,7 +3,7 @@ import type { EmbeddedEmoji } from './emoji'
 // Protocol version constant
 export const PROTOCOL_VERSION = 'NEONP2P/1.0' as const
 
-// All 25 message types
+// All 27 message types
 export type MessageType =
   // Connection (5)
   | 'HELLO'
@@ -11,6 +11,9 @@ export type MessageType =
   | 'PING'
   | 'PONG'
   | 'DISCONNECT'
+  // Trust (2)
+  | 'VERIFY_CONFIRM'
+  | 'PROFILE_REVEAL'
   // Text (4)
   | 'TEXT'
   | 'TEXT_ACK'
@@ -77,6 +80,18 @@ export type DisconnectCode = 'USER_INITIATED' | 'APP_CLOSING' | 'PROTOCOL_ERROR'
 export interface DisconnectPayload {
   reason: string
   code: DisconnectCode
+}
+
+// Trust payloads
+export interface VerifyConfirmPayload {
+  verified: true
+}
+
+export interface ProfileRevealPayload {
+  displayName: string
+  capabilities: string[]
+  avatarDataUrl?: string
+  audioBitrate?: number
 }
 
 // GIF metadata
@@ -246,6 +261,8 @@ export interface PayloadMap {
   PING: PingPayload
   PONG: PongPayload
   DISCONNECT: DisconnectPayload
+  VERIFY_CONFIRM: VerifyConfirmPayload
+  PROFILE_REVEAL: ProfileRevealPayload
   TEXT: TextPayload
   TEXT_ACK: TextAckPayload
   TEXT_EDIT: TextEditPayload
@@ -334,6 +351,7 @@ export const ERROR_CODES = {
   INVALID_SIGNATURE: 5001,
   KEY_MISMATCH: 5002,
   DECRYPTION_FAILED: 5003,
+  VERIFICATION_REQUIRED: 5004,
   // File transfer errors (6000-6099)
   FILE_GENERIC: 6000,
   FILE_TOO_LARGE: 6001,

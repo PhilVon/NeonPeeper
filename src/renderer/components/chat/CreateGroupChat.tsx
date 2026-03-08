@@ -37,7 +37,8 @@ export function CreateGroupChat({ isOpen, onClose, onCreated }: CreateGroupChatP
   // Filter to only connected peers
   const connectedPeers = Array.from(peers.values()).filter((peer) => {
     const conn = connections.get(peer.id)
-    return conn?.connectionState === 'connected'
+    const cs = conn?.connectionState
+    return cs === 'connected' || cs === 'verified'
   })
 
   const togglePeer = (peerId: string) => {
