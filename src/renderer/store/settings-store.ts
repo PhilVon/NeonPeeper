@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { QualityPreset } from '../types/protocol'
 
 interface SettingsState {
+  peerId: string
   displayName: string
   signalingUrl: string
   autoConnect: boolean
@@ -38,6 +39,7 @@ interface SettingsState {
   turnPassword: string
 
   // Actions
+  setPeerId: (id: string) => void
   setDisplayName: (name: string) => void
   setAvatarDataUrl: (url: string) => void
   setGiphyApiKey: (key: string) => void
@@ -62,6 +64,7 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
+      peerId: '',
       displayName: 'Neon User',
       signalingUrl: 'ws://localhost:8080',
       autoConnect: false,
@@ -89,6 +92,7 @@ export const useSettingsStore = create<SettingsState>()(
       turnUsername: '',
       turnPassword: '',
 
+      setPeerId: (id) => set({ peerId: id }),
       setDisplayName: (name) => set({ displayName: name }),
       setAvatarDataUrl: (url) => set({ avatarDataUrl: url }),
       setGiphyApiKey: (key) => set({ giphyApiKey: key }),

@@ -70,7 +70,12 @@ export function App() {
   // Initialize local profile on mount
   useEffect(() => {
     if (!localProfile) {
-      const id = uuidv4().replace(/-/g, '').slice(0, 32)
+      const storedPeerId = useSettingsStore.getState().peerId
+      const id = storedPeerId || (() => {
+        const newId = uuidv4().replace(/-/g, '').slice(0, 32)
+        useSettingsStore.getState().setPeerId(newId)
+        return newId
+      })()
       const profile = {
         id,
         displayName: useSettingsStore.getState().displayName,
