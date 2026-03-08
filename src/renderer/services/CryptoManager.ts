@@ -160,6 +160,41 @@ export class CryptoManager {
     return this.sharedKeys.has(peerId)
   }
 
+  // --- Key Export/Import ---
+
+  async exportSigningKeyPair(): Promise<{ privateKey: ArrayBuffer; publicKey: ArrayBuffer; algorithm: 'Ed25519' | 'ECDSA-P256' }> {
+    if (!this.keyPair) throw new Error('No signing keypair')
+    const privateKey = await crypto.subtle.exportKey('pkcs8', this.keyPair.privateKey)
+    const publicKey = await crypto.subtle.exportKey('raw', this.keyPair.publicKey)
+    const algorithm = this.keyPair.privateKey.algorithm.name === 'Ed25519' ? 'Ed25519' as const : 'ECDSA-P256' as const
+    return { privateKey, publicKey, algorithm }
+  }
+
+  async importSigningKeyPair(privateKey: ArrayBuffer, publicKey: ArrayBuffer, algorithm: 'Ed25519' | 'ECDSA-P256'): Promise<void> {
+    const algo = algorithm === 'Ed25519'
+      ? { name: 'Ed25519' }
+      : { name: 'ECDSA', namedCurve: 'P-256' }
+    const importedPrivate = await crypto.subtle.importKey('pkcs8', privateKey, algo, true, ['sign'])
+    const importedPublic = await crypto.subtle.importKey('raw', publicKey, algo, true, ['verify'])
+    this.keyPair = { privateKey: importedPrivate, publicKey: importedPublic }
+  }
+
+  async exportDHKeyPair(): Promise<{ privateKey: ArrayBuffer; publicKey: ArrayBuffer }> {
+    if (!this.dhKeyPair) throw new Error('No DH keypair')
+    const privateKey = await crypto.subtle.exportKey('pkcs8', this.dhKeyPair.privateKey)
+    const publicKey = await crypto.subtle.exportKey('raw', this.dhKeyPair.publicKey)
+    return { privateKey, publicKey }
+  }
+
+  async importDHKeyPair(privateKey: ArrayBuffer, publicKey: ArrayBuffer): Promise<void> {
+    const algo = { name: 'ECDH', namedCurve: 'P-256' }
+    const importedPrivate = await crypto.subtle.importKey('pkcs8', privateKey, algo, true, ['deriveKey', 'deriveBits'])
+    const importedPublic = await crypto.subtle.importKey('raw', publicKey, algo, true, [])
+    this.dhKeyPair = { privateKey: importedPrivate, publicKey: importedPublic }
+    const raw = await crypto.subtle.exportKey('raw', importedPublic)
+    this._dhPublicKeyHex = this.bufferToHex(raw)
+  }
+
   // --- Message Signing ---
 
   async signMessage(messageData: Record<string, unknown>): Promise<string> {

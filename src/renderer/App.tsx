@@ -85,18 +85,6 @@ export function App() {
         audioBitrate: useSettingsStore.getState().audioBitrate,
       }
       usePeerStore.getState().setLocalProfile(profile)
-
-      // Generate crypto keypair and DH keypair, update publicKey
-      getCryptoManager().generateKeyPair()
-        .then(() => getCryptoManager().initDHKeyPair())
-        .then(() => getCryptoManager().getPublicKeyHex())
-        .then((publicKey) => {
-          const current = usePeerStore.getState().localProfile
-          if (current) {
-            usePeerStore.getState().setLocalProfile({ ...current, publicKey })
-          }
-        })
-        .catch((err) => console.error('Failed to generate keypair:', err))
     }
   }, [localProfile])
 
@@ -162,6 +150,35 @@ export function App() {
       getEphemeralMessageManager().rescheduleFromMessages(allMessages)
       // Load custom emojis
       await useEmojiStore.getState().loadEmojis()
+
+      // Load or generate crypto identity keys
+      const stored = await pm.loadIdentityKeys()
+      const cryptoMgr = getCryptoManager()
+      if (stored) {
+        await cryptoMgr.importSigningKeyPair(stored.signingPrivateKey, stored.signingPublicKey, stored.signingAlgorithm)
+        await cryptoMgr.importDHKeyPair(stored.dhPrivateKey, stored.dhPublicKey)
+      } else {
+        await cryptoMgr.generateKeyPair()
+        await cryptoMgr.initDHKeyPair()
+        const [signingExport, dhExport] = await Promise.all([
+          cryptoMgr.exportSigningKeyPair(),
+          cryptoMgr.exportDHKeyPair(),
+        ])
+        await pm.storeIdentityKeys({
+          id: 'local',
+          signingPrivateKey: signingExport.privateKey,
+          signingPublicKey: signingExport.publicKey,
+          signingAlgorithm: signingExport.algorithm,
+          dhPrivateKey: dhExport.privateKey,
+          dhPublicKey: dhExport.publicKey,
+          createdAt: Date.now(),
+        })
+      }
+      const publicKey = await cryptoMgr.getPublicKeyHex()
+      const current = usePeerStore.getState().localProfile
+      if (current) {
+        usePeerStore.getState().setLocalProfile({ ...current, publicKey })
+      }
     }).catch((err) => {
       console.error('Failed to init PersistenceManager:', err)
     })
@@ -208,7 +225,7 @@ export function App() {
 
   // Auto-connect to signaling server
   useEffect(() => {
-    if (autoConnect && signalingUrl && localProfile) {
+    if (autoConnect && signalingUrl && localProfile?.publicKey) {
       const client = getSignalingClient()
       client.connect(signalingUrl)
       return () => {

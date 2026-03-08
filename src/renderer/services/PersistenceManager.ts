@@ -3,13 +3,23 @@ import type { StoredMessage, StoredChat } from '../types/chat'
 import type { CustomEmoji } from '../types/emoji'
 
 const DB_NAME = 'neon-peeper-chat'
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 interface EmojiCacheEntry {
   id: string // peerId:shortcode
   peerId: string
   shortcode: string
   dataUrl: string
+}
+
+export interface StoredIdentityKeys {
+  id: string                    // always 'local'
+  signingPrivateKey: ArrayBuffer
+  signingPublicKey: ArrayBuffer
+  signingAlgorithm: 'Ed25519' | 'ECDSA-P256'
+  dhPrivateKey: ArrayBuffer
+  dhPublicKey: ArrayBuffer
+  createdAt: number
 }
 
 interface NeonPeeperDB {
@@ -44,6 +54,10 @@ interface NeonPeeperDB {
       'by-peer': string
     }
   }
+  identityKeys: {
+    key: string
+    value: StoredIdentityKeys
+  }
 }
 
 class PersistenceManager {
@@ -73,6 +87,10 @@ class PersistenceManager {
           // Emoji cache store
           const cacheStore = db.createObjectStore('emojiCache', { keyPath: 'id' })
           cacheStore.createIndex('by-peer', 'peerId')
+        }
+
+        if (oldVersion < 3) {
+          db.createObjectStore('identityKeys', { keyPath: 'id' })
         }
       },
     })
@@ -228,13 +246,26 @@ class PersistenceManager {
     return entry?.dataUrl
   }
 
+  // --- Identity Keys ---
+
+  async storeIdentityKeys(keys: StoredIdentityKeys): Promise<void> {
+    const db = this.ensureDb()
+    await db.put('identityKeys', keys)
+  }
+
+  async loadIdentityKeys(): Promise<StoredIdentityKeys | undefined> {
+    const db = this.ensureDb()
+    return db.get('identityKeys', 'local')
+  }
+
   async clearAll(): Promise<void> {
     const db = this.ensureDb()
-    const tx = db.transaction(['messages', 'chats', 'customEmojis', 'emojiCache'], 'readwrite')
+    const tx = db.transaction(['messages', 'chats', 'customEmojis', 'emojiCache', 'identityKeys'], 'readwrite')
     await tx.objectStore('messages').clear()
     await tx.objectStore('chats').clear()
     await tx.objectStore('customEmojis').clear()
     await tx.objectStore('emojiCache').clear()
+    await tx.objectStore('identityKeys').clear()
     await tx.done
   }
 }
