@@ -17,6 +17,7 @@ export interface ChatMessage {
   meta?: GifMeta
   customEmojis?: EmbeddedEmoji[]
   encrypted?: boolean
+  ttl?: number
 }
 
 export type ChatType = 'direct' | 'group'
@@ -49,6 +50,7 @@ export interface StoredMessage {
   contentType?: 'text' | 'gif'
   meta?: GifMeta
   customEmojis?: EmbeddedEmoji[]
+  ttl?: number
 }
 
 export interface StoredChat {

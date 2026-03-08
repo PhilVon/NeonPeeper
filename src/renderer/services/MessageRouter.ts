@@ -18,6 +18,7 @@ import { getCryptoManager } from './CryptoManager'
 import { getFileTransferManager } from './FileTransferManager'
 import { getSignalingClient } from './SignalingClient'
 import { getPersistenceManager } from './PersistenceManager'
+import { getEphemeralMessageManager } from './EphemeralMessageManager'
 import { generateDirectChatId } from '../types/chat'
 import { useUIStore } from '../store/ui-store'
 import { useSettingsStore } from '../store/settings-store'
@@ -348,6 +349,7 @@ export class MessageRouter {
     }
 
     // Store message
+    const ttl = message.payload.ttl
     const chatMessage: ChatMessage = {
       id: message.id,
       chatId,
@@ -360,10 +362,14 @@ export class MessageRouter {
       meta: message.payload.meta,
       customEmojis,
       encrypted: !!message.payload.encrypted,
+      ...(ttl && ttl > 0 ? { ttl } : {}),
     }
 
     chatStore.addMessage(chatMessage)
     getPersistenceManager().storeMessage(chatMessage).catch(() => {})
+    if (ttl && ttl > 0) {
+      getEphemeralMessageManager().scheduleDelete(message.id, chatId, message.timestamp, ttl)
+    }
 
     // Native notification when window is unfocused
     if (

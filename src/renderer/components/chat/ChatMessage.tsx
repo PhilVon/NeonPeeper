@@ -30,6 +30,13 @@ function getStatusIcon(status: ChatMessageType['status']): string {
   }
 }
 
+function formatTtl(ms: number): string {
+  if (ms < 60_000) return `${Math.round(ms / 1000)}s`
+  if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m`
+  if (ms < 86_400_000) return `${Math.round(ms / 3_600_000)}h`
+  return `${Math.round(ms / 86_400_000)}d`
+}
+
 function renderMessageContent(content: string, customEmojis?: EmbeddedEmoji[]): React.ReactNode {
   if (!customEmojis || customEmojis.length === 0) {
     return content
@@ -130,6 +137,9 @@ export function ChatMessage({
             <span className="chat-message-text">{renderMessageContent(message.content, message.customEmojis)}</span>
           )}
           <span className="chat-message-meta">
+            {message.ttl && message.ttl > 0 && (
+              <span className="chat-message-ephemeral" title={`Auto-deletes after ${formatTtl(message.ttl)}`}>&#9203;</span>
+            )}
             {message.encrypted && <span className="chat-message-encrypted" title="End-to-end encrypted">&#128274;</span>}
             {message.edited && <span className="chat-message-edited">edited</span>}
             <span className="chat-message-time">{formatTime(message.timestamp)}</span>

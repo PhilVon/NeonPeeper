@@ -18,6 +18,7 @@ import { EmojiManager } from './components/settings/EmojiManager'
 import { MediaSettings } from './components/settings/MediaSettings'
 import { QualitySettings } from './components/settings/QualitySettings'
 import { NetworkSettings } from './components/settings/NetworkSettings'
+import { PrivacySettings } from './components/settings/PrivacySettings'
 import { toast } from './store/toast-store'
 import { useUIStore } from './store/ui-store'
 import { usePeerStore } from './store/peer-store'
@@ -33,6 +34,7 @@ import { getSignalingClient } from './services/SignalingClient'
 import { getMediaManager } from './services/MediaManager'
 import { getCryptoManager } from './services/CryptoManager'
 import { getPerformanceMonitor } from './services/PerformanceMonitor'
+import { getEphemeralMessageManager } from './services/EphemeralMessageManager'
 import { getSFUClient, type Topology } from './services/SFUClient'
 import { generateDirectChatId } from './types/chat'
 import { createMessage } from './types/protocol'
@@ -138,6 +140,7 @@ export function App() {
     const pm = getPersistenceManager()
     pm.init().then(async () => {
       const storedChats = await pm.getActiveChats()
+      const allMessages: import('./types/chat').ChatMessage[] = []
       for (const chat of storedChats) {
         useChatStore.getState().upsertChat({
           ...chat,
@@ -145,12 +148,13 @@ export function App() {
         })
         const msgs = await pm.getMessages(chat.id, 50)
         for (const msg of msgs) {
-          useChatStore.getState().addMessage({
-            ...msg,
-            status: msg.status ?? 'read',
-          })
+          const chatMsg = { ...msg, status: msg.status ?? ('read' as const) }
+          useChatStore.getState().addMessage(chatMsg)
+          allMessages.push(chatMsg)
         }
       }
+      // Reschedule ephemeral message deletions
+      getEphemeralMessageManager().rescheduleFromMessages(allMessages)
       // Load custom emojis
       await useEmojiStore.getState().loadEmojis()
     }).catch((err) => {
@@ -660,6 +664,9 @@ function SettingsPage() {
         <TabPanel id="network">
           <section className="app-settings-section">
             <NetworkSettings />
+          </section>
+          <section className="app-settings-section">
+            <PrivacySettings />
           </section>
         </TabPanel>
       </Tabs>

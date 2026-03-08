@@ -83,6 +83,12 @@
   color: var(--neon-cyan);
 }
 
+.chat-message-ephemeral {
+  font-size: 10px;
+  color: var(--neon-magenta);
+  cursor: default;
+}
+
 .chat-message-deleted {
   opacity: 0.5;
 }

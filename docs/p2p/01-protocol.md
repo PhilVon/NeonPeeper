@@ -202,6 +202,9 @@ interface TextPayload {
 
   /** Optional: ID of message being replied to */
   replyTo?: string
+
+  /** Optional: auto-delete TTL in ms from timestamp; 0 or absent = no auto-delete */
+  ttl?: number
 }
 ```
 
