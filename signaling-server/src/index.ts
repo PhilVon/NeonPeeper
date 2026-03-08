@@ -1,4 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws'
+import * as mediasoup from 'mediasoup'
+import { SFURoom, createRoom } from './sfu-room'
+import type { SFUMessage } from './types'
 
 const args = process.argv.slice(2)
 let portArg: string | undefined
@@ -26,6 +29,59 @@ interface PeerInfo {
 const peers = new Map<string, PeerInfo>()
 const rooms = new Map<string, Set<string>>() // roomId -> Set<peerId>
 
+// --- SFU state ---
+const sfuRooms = new Map<string, SFURoom>()
+let mediasoupWorker: mediasoup.types.Worker | null = null
+
+async function initMediasoup(): Promise<void> {
+  try {
+    mediasoupWorker = await mediasoup.createWorker({
+      logLevel: 'warn',
+      rtcMinPort: 40000,
+      rtcMaxPort: 49999,
+    })
+    mediasoupWorker.on('died', () => {
+      console.error('[Signaling] mediasoup Worker died, restarting...')
+      initMediasoup().catch((err) => console.error('[Signaling] Worker restart failed:', err))
+    })
+    console.log('[Signaling] mediasoup Worker created')
+  } catch (err) {
+    console.error('[Signaling] Failed to create mediasoup Worker:', err)
+    console.log('[Signaling] SFU features will be unavailable. Install build tools if needed.')
+    mediasoupWorker = null
+  }
+}
+
+function sendToPeerCallback(peerId: string, data: Record<string, unknown>): void {
+  const peer = peers.get(peerId)
+  if (peer) {
+    send(peer.ws, data)
+  }
+}
+
+async function getOrCreateSFURoom(roomId: string): Promise<SFURoom> {
+  let room = sfuRooms.get(roomId)
+  if (!room) {
+    if (!mediasoupWorker) throw new Error('mediasoup Worker not available')
+    room = await createRoom(mediasoupWorker, roomId, sendToPeerCallback)
+    sfuRooms.set(roomId, room)
+  }
+  return room
+}
+
+function cleanupSFUPeer(peerId: string): void {
+  for (const [roomId, room] of sfuRooms) {
+    if (room.hasPeer(peerId)) {
+      room.removePeer(peerId)
+      if (room.getPeerCount() === 0) {
+        room.close()
+        sfuRooms.delete(roomId)
+      }
+    }
+  }
+}
+// --- End SFU state ---
+
 function send(ws: WebSocket, data: Record<string, unknown>): void {
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(data))
@@ -42,6 +98,9 @@ function getPeerByWs(ws: WebSocket): PeerInfo | undefined {
 function removePeer(peerId: string): void {
   const peer = peers.get(peerId)
   if (!peer) return
+
+  // Clean up SFU resources
+  cleanupSFUPeer(peerId)
 
   // Leave all rooms
   for (const roomId of peer.rooms) {
@@ -71,9 +130,159 @@ function removePeer(peerId: string): void {
   console.log(`[Signaling] Peer disconnected: ${peerId} (${peer.displayName})`)
 }
 
+// --- SFU message handler ---
+async function handleSFUMessage(ws: WebSocket, peer: PeerInfo, msg: Record<string, unknown>): Promise<void> {
+  const type = msg.type as string
+  const requestId = msg.requestId as string | undefined
+  const data = (msg.data as Record<string, unknown>) || {}
+
+  const respond = (responseData: Record<string, unknown>) => {
+    send(ws, { type: `${type}-response`, requestId, data: responseData })
+  }
+
+  const respondError = (message: string) => {
+    send(ws, { type: 'sfu-error', requestId, data: { message } })
+  }
+
+  try {
+    switch (type) {
+      case 'sfu-join': {
+        const roomId = data.roomId as string
+        if (!roomId) { respondError('Missing roomId'); return }
+        if (!mediasoupWorker) { respondError('SFU not available'); return }
+
+        const room = await getOrCreateSFURoom(roomId)
+        room.addPeer(peer.peerId)
+        respond({ routerRtpCapabilities: room.getRouterRtpCapabilities() })
+        console.log(`[Signaling] Peer ${peer.peerId} joined SFU room ${roomId}`)
+        break
+      }
+
+      case 'sfu-create-transport': {
+        const roomId = data.roomId as string
+        const direction = data.direction as 'send' | 'recv'
+        const room = sfuRooms.get(roomId)
+        if (!room) { respondError('Room not found'); return }
+
+        const transportInfo = await room.createTransport(peer.peerId, direction)
+        respond(transportInfo)
+        break
+      }
+
+      case 'sfu-connect-transport': {
+        const roomId = data.roomId as string
+        const transportId = data.transportId as string
+        const dtlsParameters = data.dtlsParameters as mediasoup.types.DtlsParameters
+        const room = sfuRooms.get(roomId)
+        if (!room) { respondError('Room not found'); return }
+
+        await room.connectTransport(transportId, dtlsParameters)
+        respond({})
+        break
+      }
+
+      case 'sfu-produce': {
+        const roomId = data.roomId as string
+        const transportId = data.transportId as string
+        const kind = data.kind as mediasoup.types.MediaKind
+        const rtpParameters = data.rtpParameters as mediasoup.types.RtpParameters
+        const room = sfuRooms.get(roomId)
+        if (!room) { respondError('Room not found'); return }
+
+        const producerId = await room.produce(peer.peerId, transportId, kind, rtpParameters)
+        respond({ producerId })
+        break
+      }
+
+      case 'sfu-consume': {
+        const roomId = data.roomId as string
+        const producerId = data.producerId as string
+        const rtpCapabilities = data.rtpCapabilities as mediasoup.types.RtpCapabilities
+        const room = sfuRooms.get(roomId)
+        if (!room) { respondError('Room not found'); return }
+
+        const consumerData = await room.consume(peer.peerId, producerId, rtpCapabilities)
+        respond(consumerData)
+        break
+      }
+
+      case 'sfu-resume-consumer': {
+        const roomId = data.roomId as string
+        const consumerId = data.consumerId as string
+        const room = sfuRooms.get(roomId)
+        if (!room) { respondError('Room not found'); return }
+
+        await room.resumeConsumer(consumerId)
+        respond({})
+        break
+      }
+
+      case 'sfu-pause-consumer': {
+        const roomId = data.roomId as string
+        const consumerId = data.consumerId as string
+        const room = sfuRooms.get(roomId)
+        if (!room) { respondError('Room not found'); return }
+
+        await room.pauseConsumer(consumerId)
+        respond({})
+        break
+      }
+
+      case 'sfu-set-preferred-layers': {
+        const roomId = data.roomId as string
+        const consumerId = data.consumerId as string
+        const spatialLayer = data.spatialLayer as number
+        const temporalLayer = data.temporalLayer as number | undefined
+        const room = sfuRooms.get(roomId)
+        if (!room) { respondError('Room not found'); return }
+
+        await room.setPreferredLayers(consumerId, spatialLayer, temporalLayer)
+        respond({})
+        break
+      }
+
+      case 'sfu-close-producer': {
+        const roomId = data.roomId as string
+        const producerId = data.producerId as string
+        const room = sfuRooms.get(roomId)
+        if (!room) { respondError('Room not found'); return }
+
+        room.removeProducer(producerId)
+        respond({})
+        break
+      }
+
+      case 'sfu-leave': {
+        const roomId = data.roomId as string
+        const room = sfuRooms.get(roomId)
+        if (!room) { respond({}); return }
+
+        room.removePeer(peer.peerId)
+        if (room.getPeerCount() === 0) {
+          room.close()
+          sfuRooms.delete(roomId)
+        }
+        respond({})
+        console.log(`[Signaling] Peer ${peer.peerId} left SFU room ${roomId}`)
+        break
+      }
+
+      default:
+        respondError(`Unknown SFU message type: ${type}`)
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    console.error(`[Signaling] SFU error (${type}):`, message)
+    respondError(message)
+  }
+}
+
 const wss = new WebSocketServer({ port: PORT })
 
 console.log(`[Signaling] Server started on ws://localhost:${PORT}`)
+
+// Initialize mediasoup (non-blocking)
+initMediasoup().catch((err) => console.error('[Signaling] mediasoup init error:', err))
 
 wss.on('connection', (ws) => {
   let registeredPeerId: string | null = null
@@ -88,6 +297,20 @@ wss.on('connection', (ws) => {
     }
 
     const type = msg.type as string
+
+    // Route SFU messages
+    if (type.startsWith('sfu-')) {
+      const peer = getPeerByWs(ws)
+      if (!peer) {
+        send(ws, { type: 'sfu-error', requestId: msg.requestId, data: { message: 'Not registered' } })
+        return
+      }
+      handleSFUMessage(ws, peer, msg).catch((err) => {
+        console.error('[Signaling] SFU handler error:', err)
+        send(ws, { type: 'sfu-error', requestId: msg.requestId, data: { message: 'Internal error' } })
+      })
+      return
+    }
 
     switch (type) {
       case 'register': {

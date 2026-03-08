@@ -9,6 +9,7 @@ import { useConnectionStore } from '../store/connection-store'
 import { usePeerStore } from '../store/peer-store'
 import { useSettingsStore } from '../store/settings-store'
 import { getCryptoManager } from './CryptoManager'
+import { selectTopology, SFU_CONSTANTS, type Topology } from './SFUClient'
 import type { ConnectionState, ManualConnectionData } from '../types/peer'
 
 type EventCallback = (...args: unknown[]) => void
@@ -39,6 +40,7 @@ export class ConnectionManager {
   private _destroyed = false
   private userInitiatedCloses = new Set<string>()
   private messageQueue = new Map<string, QueuedMessage[]>()
+  private currentTopology: Topology = 'direct'
 
   get localPeerId(): string {
     return usePeerStore.getState().localProfile?.id ?? ''
@@ -502,6 +504,41 @@ export class ConnectionManager {
     this.updateState(peerId, 'failed')
     this.emit('peer-disconnected', peerId)
     this.closeConnection(peerId)
+  }
+
+  // --- Topology management ---
+
+  getTopology(): Topology {
+    return this.currentTopology
+  }
+
+  evaluateTopology(): void {
+    if (!useSettingsStore.getState().sfuEnabled) {
+      if (this.currentTopology === 'sfu') {
+        this.setTopology('mesh')
+      }
+      return
+    }
+
+    const mediaParticipantCount = this.getConnectedPeerIds().length + 1 // +1 for local
+    const newTopology = selectTopology(mediaParticipantCount)
+
+    // Hysteresis: only switch back from SFU to mesh when below threshold
+    if (this.currentTopology === 'sfu' && newTopology !== 'sfu') {
+      if (mediaParticipantCount > SFU_CONSTANTS.HYSTERESIS_THRESHOLD) {
+        return // Stay in SFU mode
+      }
+    }
+
+    if (newTopology !== this.currentTopology) {
+      this.setTopology(newTopology)
+    }
+  }
+
+  private setTopology(topology: Topology): void {
+    const previous = this.currentTopology
+    this.currentTopology = topology
+    this.emit('topology-changed', topology, previous)
   }
 
   // --- Connection management ---

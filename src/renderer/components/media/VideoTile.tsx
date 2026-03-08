@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Avatar } from '../ui/Avatar'
 import { useSpeakingDetection } from '../../hooks/useSpeakingDetection'
+import { getSFUClient } from '../../services/SFUClient'
+import { useMediaStore } from '../../store/media-store'
 import './VideoTile.css'
 
 interface VideoTileProps {
@@ -13,6 +15,8 @@ interface VideoTileProps {
   showQuality?: boolean
   qualityBars?: number
   objectFit?: 'cover' | 'contain'
+  consumerId?: string
+  sfuLayer?: 'low' | 'mid' | 'high'
 }
 
 export function VideoTile({
@@ -25,11 +29,14 @@ export function VideoTile({
   showQuality = false,
   qualityBars = 4,
   objectFit = 'cover',
+  consumerId,
+  sfuLayer,
 }: VideoTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const tileRef = useRef<HTMLDivElement>(null)
   const { isSpeaking } = useSpeakingDetection(stream, tileRef)
   const [isVisible, setIsVisible] = useState(true)
+  const topology = useMediaStore((s) => s.topology)
 
   useEffect(() => {
     if (videoRef.current) {
@@ -55,16 +62,28 @@ export function VideoTile({
             videoRef.current.pause()
           }
         }
+
+        // SFU consumer pause/resume for off-screen tiles
+        if (consumerId && topology === 'sfu') {
+          const sfu = getSFUClient()
+          if (entry.isIntersecting) {
+            sfu.resumeConsumer(consumerId).catch(() => {})
+          } else {
+            sfu.pauseConsumer(consumerId).catch(() => {})
+          }
+        }
       },
       { threshold: 0.1 }
     )
 
     observer.observe(tile)
     return () => observer.disconnect()
-  }, [])
+  }, [consumerId, topology])
 
   const hasVideo = stream && videoEnabled && stream.getVideoTracks().some((t) => t.enabled)
   const speaking = isSpeaking || isActiveSpeaker
+
+  const layerLabel = sfuLayer === 'high' ? 'HD' : sfuLayer === 'mid' ? 'SD' : sfuLayer === 'low' ? 'LD' : null
 
   return (
     <div
@@ -99,6 +118,9 @@ export function VideoTile({
         {muted && <span className="video-tile-muted" title="Muted">🔇</span>}
         {showQuality && (
           <QualityBars bars={qualityBars} />
+        )}
+        {topology === 'sfu' && layerLabel && (
+          <span className="video-tile-sfu-layer">{layerLabel}</span>
         )}
       </div>
     </div>

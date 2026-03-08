@@ -46,6 +46,16 @@
   grid-template-rows: 1fr 1fr;
 }
 
+.video-grid-9 {
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+}
+
+.video-grid-large {
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 1fr;
+}
+
 /* When screen share is active, make the grid a thumbnail strip */
 .video-grid-screen-share ~ .video-grid {
   flex: none;

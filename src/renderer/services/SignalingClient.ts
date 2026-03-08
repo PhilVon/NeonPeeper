@@ -1,6 +1,8 @@
 import { usePeerStore } from '../store/peer-store'
 import { getConnectionManager } from './ConnectionManager'
+import { getSFUClient } from './SFUClient'
 import { toast } from '../store/toast-store'
+import type { SFUMessage } from '../types/sfu'
 
 type SignalingState = 'disconnected' | 'connecting' | 'connected' | 'error'
 type EventCallback = (...args: unknown[]) => void
@@ -132,6 +134,10 @@ export class SignalingClient {
     this.send(msg)
   }
 
+  sendSFUMessage(msg: SFUMessage): void {
+    this.send(msg as unknown as Record<string, unknown>)
+  }
+
   private send(data: Record<string, unknown>): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(data))
@@ -140,6 +146,12 @@ export class SignalingClient {
 
   private handleMessage(msg: Record<string, unknown>): void {
     const type = msg.type as string
+
+    // Route SFU messages to SFUClient
+    if (type.startsWith('sfu-')) {
+      getSFUClient().handleServerMessage(msg as unknown as SFUMessage)
+      return
+    }
 
     switch (type) {
       case 'registered':

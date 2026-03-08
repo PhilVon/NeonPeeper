@@ -8,6 +8,8 @@ export function NetworkSettings() {
   const autoConnect = useSettingsStore((s) => s.autoConnect)
   const e2eEncryption = useSettingsStore((s) => s.e2eEncryption)
   const setE2EEncryption = useSettingsStore((s) => s.setE2EEncryption)
+  const sfuEnabled = useSettingsStore((s) => s.sfuEnabled)
+  const setSfuEnabled = useSettingsStore((s) => s.setSfuEnabled)
   const stunServers = useSettingsStore((s) => s.stunServers)
   const turnServer = useSettingsStore((s) => s.turnServer)
   const turnUsername = useSettingsStore((s) => s.turnUsername)
@@ -64,6 +66,15 @@ export function NetworkSettings() {
         type="password"
         value={turnPassword}
         onChange={(e) => setTurnCredentials(turnUsername, e.target.value)}
+      />
+
+      <h3>Media Routing</h3>
+
+      <Toggle
+        label="SFU mode (auto-switch at 7+ peers)"
+        checked={sfuEnabled}
+        onChange={(e) => setSfuEnabled(e.target.checked)}
+        color="cyan"
       />
 
       <h3>Security</h3>

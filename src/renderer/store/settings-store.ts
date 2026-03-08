@@ -25,6 +25,9 @@ interface SettingsState {
   // Integrations
   giphyApiKey: string
 
+  // SFU
+  sfuEnabled: boolean
+
   // STUN/TURN
   stunServers: string[]
   turnServer: string
@@ -46,6 +49,7 @@ interface SettingsState {
   setCameraDeviceId: (id: string) => void
   setMicDeviceId: (id: string) => void
   setSpeakerDeviceId: (id: string) => void
+  setSfuEnabled: (enabled: boolean) => void
   setStunServers: (servers: string[]) => void
   setTurnServer: (server: string) => void
   setTurnCredentials: (username: string, password: string) => void
@@ -72,6 +76,8 @@ export const useSettingsStore = create<SettingsState>()(
 
       giphyApiKey: '',
 
+      sfuEnabled: true,
+
       stunServers: ['stun:stun.l.google.com:19302'],
       turnServer: '',
       turnUsername: '',
@@ -91,6 +97,7 @@ export const useSettingsStore = create<SettingsState>()(
       setCameraDeviceId: (id) => set({ cameraDeviceId: id }),
       setMicDeviceId: (id) => set({ micDeviceId: id }),
       setSpeakerDeviceId: (id) => set({ speakerDeviceId: id }),
+      setSfuEnabled: (enabled) => set({ sfuEnabled: enabled }),
       setStunServers: (servers) => set({ stunServers: servers }),
       setTurnServer: (server) => set({ turnServer: server }),
       setTurnCredentials: (username, password) => set({ turnUsername: username, turnPassword: password }),

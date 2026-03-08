@@ -13,6 +13,9 @@ interface TileInfo {
   mirrored: boolean
   videoEnabled: boolean
   objectFit: 'cover' | 'contain'
+  consumerId?: string
+  sfuLayer?: 'low' | 'mid' | 'high'
+  isActiveSpeaker?: boolean
 }
 
 interface ChatVideoPanelProps {
@@ -44,6 +47,9 @@ export function ChatVideoPanel({
   const peers = usePeerStore((s) => s.peers)
   const localId = usePeerStore((s) => s.localProfile?.id)
   const screenStream = useMediaStore((s) => s.localScreenStream)
+  const topology = useMediaStore((s) => s.topology)
+  const sfuConsumers = useMediaStore((s) => s.sfuConsumers)
+  const activeSpeakerPeerId = useMediaStore((s) => s.activeSpeakerPeerId)
 
   const [focusedTileId, setFocusedTileId] = useState<string | null>(null)
 
@@ -85,6 +91,20 @@ export function ChatVideoPanel({
     for (const peerId of remotePeerIds) {
       const rs = remoteStreams.get(peerId)
       const peerName = peers.get(peerId)?.displayName ?? peerId.slice(0, 8)
+
+      // Find SFU consumer for this peer (if in SFU mode)
+      let consumerId: string | undefined
+      let sfuLayer: 'low' | 'mid' | 'high' | undefined
+      if (topology === 'sfu') {
+        for (const [cId, cInfo] of sfuConsumers) {
+          if (cInfo.peerId === peerId && cInfo.kind === 'video') {
+            consumerId = cId
+            sfuLayer = peerId === activeSpeakerPeerId ? 'high' : 'mid'
+            break
+          }
+        }
+      }
+
       result.push({
         id: `cam-${peerId}`,
         stream: rs?.stream ?? null,
@@ -93,6 +113,9 @@ export function ChatVideoPanel({
         mirrored: false,
         videoEnabled: rs?.videoEnabled ?? true,
         objectFit: 'cover',
+        consumerId,
+        sfuLayer,
+        isActiveSpeaker: peerId === activeSpeakerPeerId,
       })
     }
 
@@ -114,7 +137,7 @@ export function ChatVideoPanel({
     }
 
     return result
-  }, [isLocalSharing, localStream, localScreenStream, localName, videoEnabled, remotePeerIds, remoteStreams, remoteScreenStreams, peers])
+  }, [isLocalSharing, localStream, localScreenStream, localName, videoEnabled, remotePeerIds, remoteStreams, remoteScreenStreams, peers, topology, sfuConsumers, activeSpeakerPeerId])
 
   // Auto-clear focused tile if it disappears
   useEffect(() => {
@@ -138,6 +161,9 @@ export function ChatVideoPanel({
               mirrored={focusedTile.mirrored}
               videoEnabled={focusedTile.videoEnabled}
               objectFit={focusedTile.objectFit}
+              consumerId={focusedTile.consumerId}
+              sfuLayer={focusedTile.sfuLayer}
+              isActiveSpeaker={focusedTile.isActiveSpeaker}
             />
           </div>
           {otherTiles.length > 0 && (
@@ -155,6 +181,9 @@ export function ChatVideoPanel({
                     mirrored={tile.mirrored}
                     videoEnabled={tile.videoEnabled}
                     objectFit={tile.objectFit}
+                    consumerId={tile.consumerId}
+                    sfuLayer={tile.sfuLayer}
+                    isActiveSpeaker={tile.isActiveSpeaker}
                   />
                 </div>
               ))}
@@ -176,6 +205,9 @@ export function ChatVideoPanel({
                 mirrored={tile.mirrored}
                 videoEnabled={tile.videoEnabled}
                 objectFit={tile.objectFit}
+                consumerId={tile.consumerId}
+                sfuLayer={tile.sfuLayer}
+                isActiveSpeaker={tile.isActiveSpeaker}
               />
             </div>
           ))}

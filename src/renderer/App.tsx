@@ -33,6 +33,7 @@ import { getSignalingClient } from './services/SignalingClient'
 import { getMediaManager } from './services/MediaManager'
 import { getCryptoManager } from './services/CryptoManager'
 import { getPerformanceMonitor } from './services/PerformanceMonitor'
+import { getSFUClient, type Topology } from './services/SFUClient'
 import { generateDirectChatId } from './types/chat'
 import { createMessage } from './types/protocol'
 import { DEFAULT_RECONNECTION_CONFIG } from './types/peer'
@@ -336,6 +337,50 @@ export function App() {
       reconnectTimers.current.clear()
     }
   }, [])
+
+  // Topology switching (SFU support)
+  useEffect(() => {
+    const cm = getConnectionManager()
+    const mm = getMediaManager()
+
+    const handleTopologyChanged = (newTopology: unknown, previousTopology: unknown) => {
+      const to = newTopology as Topology
+      const from = previousTopology as Topology
+
+      mm.setTopology(to)
+
+      if (to === 'sfu') {
+        toast.info('Switched to SFU mode for better scalability')
+        // Connect SFU client to the active room
+        const activeChatIdVal = useChatStore.getState().activeChatId
+        if (activeChatIdVal) {
+          getSFUClient().connect(activeChatIdVal)
+            .then(() => mm.handleTopologySwitch(from, to))
+            .catch((err) => {
+              console.error('[App] SFU connection failed, staying in mesh:', err)
+              toast.warning('SFU unavailable, staying in mesh mode')
+            })
+        }
+      } else if (from === 'sfu') {
+        toast.info('Switched back to mesh mode')
+        mm.handleTopologySwitch(from, to)
+          .catch((err) => console.error('[App] Topology switch error:', err))
+      }
+    }
+
+    cm.on('topology-changed', handleTopologyChanged)
+
+    return () => {
+      cm.off('topology-changed', handleTopologyChanged)
+    }
+  }, [])
+
+  // Evaluate topology when media participants change
+  useEffect(() => {
+    if (isAnyVideoSharing) {
+      getConnectionManager().evaluateTopology()
+    }
+  }, [isAnyVideoSharing])
 
   const handleStartChat = useCallback((peerId: string) => {
     const localId = usePeerStore.getState().localProfile?.id
