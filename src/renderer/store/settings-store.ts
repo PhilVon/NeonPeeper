@@ -8,6 +8,7 @@ interface SettingsState {
   autoConnect: boolean
   desktopNotifications: boolean
   messageSigning: boolean
+  e2eEncryption: boolean
 
   // Media settings
   qualityPreset: QualityPreset
@@ -38,6 +39,7 @@ interface SettingsState {
   setAutoConnect: (enabled: boolean) => void
   setDesktopNotifications: (enabled: boolean) => void
   setMessageSigning: (enabled: boolean) => void
+  setE2EEncryption: (enabled: boolean) => void
   setQualityPreset: (preset: QualityPreset) => void
   setPreferredCodec: (codec: SettingsState['preferredCodec']) => void
   setAudioBitrate: (bitrate: number) => void
@@ -57,6 +59,7 @@ export const useSettingsStore = create<SettingsState>()(
       autoConnect: false,
       desktopNotifications: true,
       messageSigning: false,
+      e2eEncryption: false,
 
       qualityPreset: 'high',
       preferredCodec: 'auto',
@@ -81,6 +84,7 @@ export const useSettingsStore = create<SettingsState>()(
       setAutoConnect: (enabled) => set({ autoConnect: enabled }),
       setDesktopNotifications: (enabled) => set({ desktopNotifications: enabled }),
       setMessageSigning: (enabled) => set({ messageSigning: enabled }),
+      setE2EEncryption: (enabled) => set({ e2eEncryption: enabled }),
       setQualityPreset: (preset) => set({ qualityPreset: preset }),
       setPreferredCodec: (codec) => set({ preferredCodec: codec }),
       setAudioBitrate: (bitrate) => set({ audioBitrate: bitrate }),

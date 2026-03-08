@@ -103,7 +103,12 @@ export function ChatMessage({
   }
 
   return (
-    <div className={`chat-message ${isOwn ? 'chat-message-own' : ''}`}>
+    <div
+      className={`chat-message ${isOwn ? 'chat-message-own' : ''}`}
+      data-message-id={message.id}
+      role="article"
+      aria-label={`${isOwn ? 'You' : peer?.displayName || 'Unknown'} at ${formatTime(message.timestamp)}`}
+    >
       {showSender && !isOwn && (
         <Avatar name={peer?.displayName || '?'} src={peer?.avatarDataUrl} size="small" />
       )}
@@ -125,6 +130,7 @@ export function ChatMessage({
             <span className="chat-message-text">{renderMessageContent(message.content, message.customEmojis)}</span>
           )}
           <span className="chat-message-meta">
+            {message.encrypted && <span className="chat-message-encrypted" title="End-to-end encrypted">&#128274;</span>}
             {message.edited && <span className="chat-message-edited">edited</span>}
             <span className="chat-message-time">{formatTime(message.timestamp)}</span>
             {isOwn && (

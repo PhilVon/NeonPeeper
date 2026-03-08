@@ -34,6 +34,11 @@ export type MessageType =
   | 'MEDIA_START'
   | 'MEDIA_STOP'
   | 'MEDIA_QUALITY'
+  // File transfer (4)
+  | 'FILE_OFFER'
+  | 'FILE_ACCEPT'
+  | 'FILE_CHUNK'
+  | 'FILE_COMPLETE'
   // Error (1)
   | 'ERROR'
 
@@ -46,6 +51,7 @@ export interface HelloPayload {
   capabilities: string[]
   avatarDataUrl?: string
   audioBitrate?: number
+  dhPublicKey?: string
 }
 
 export interface HelloAckPayload {
@@ -55,6 +61,7 @@ export interface HelloAckPayload {
   ackedPeerId: string
   avatarDataUrl?: string
   audioBitrate?: number
+  dhPublicKey?: string
 }
 
 export interface PingPayload {
@@ -88,6 +95,7 @@ export interface TextPayload {
   contentType?: 'text' | 'gif'
   meta?: GifMeta
   customEmojis?: EmbeddedEmoji[]
+  encrypted?: { ciphertext: string; iv: string }
 }
 
 export interface TextAckPayload {
@@ -195,6 +203,33 @@ export interface MediaQualityPayload {
   }
 }
 
+// File transfer payloads
+export interface FileOfferPayload {
+  transferId: string
+  fileName: string
+  fileSize: number
+  mimeType: string
+  fileHash: string
+}
+
+export interface FileAcceptPayload {
+  transferId: string
+  accepted: boolean
+}
+
+export interface FileChunkPayload {
+  transferId: string
+  chunkIndex: number
+  totalChunks: number
+  data: string // base64
+}
+
+export interface FileCompletePayload {
+  transferId: string
+  success: boolean
+  receivedHash?: string
+}
+
 // Error payload
 export interface ErrorPayload {
   code: number
@@ -229,6 +264,10 @@ export interface PayloadMap {
   MEDIA_START: MediaStartPayload
   MEDIA_STOP: MediaStopPayload
   MEDIA_QUALITY: MediaQualityPayload
+  FILE_OFFER: FileOfferPayload
+  FILE_ACCEPT: FileAcceptPayload
+  FILE_CHUNK: FileChunkPayload
+  FILE_COMPLETE: FileCompletePayload
   ERROR: ErrorPayload
 }
 
@@ -294,6 +333,11 @@ export const ERROR_CODES = {
   INVALID_SIGNATURE: 5001,
   KEY_MISMATCH: 5002,
   DECRYPTION_FAILED: 5003,
+  // File transfer errors (6000-6099)
+  FILE_GENERIC: 6000,
+  FILE_TOO_LARGE: 6001,
+  FILE_REJECTED: 6002,
+  FILE_HASH_MISMATCH: 6003,
 } as const
 
 // --- Helper to create messages ---

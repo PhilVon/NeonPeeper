@@ -48,6 +48,12 @@
   color: var(--text-muted);
 }
 
+.peer-card-verified {
+  color: var(--neon-green);
+  margin-left: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+}
+
 .peer-card-actions {
   display: flex;
   gap: var(--spacing-xs);

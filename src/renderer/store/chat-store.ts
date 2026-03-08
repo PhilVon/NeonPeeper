@@ -14,6 +14,7 @@ interface ChatState {
   editMessage: (messageId: string, chatId: string, content: string, editedAt: number) => void
   deleteMessage: (messageId: string, chatId: string) => void
   setTyping: (chatId: string, peerId: string, isTyping: boolean) => void
+  updateMessageEncrypted: (messageId: string, chatId: string) => void
   markAsRead: (chatId: string) => void
   loadOlderMessages: (chatId: string, messages: ChatMessage[]) => void
   removeChat: (chatId: string) => void
@@ -114,6 +115,18 @@ export const useChatStore = create<ChatState>((set) => ({
       }
       typing.set(chatId, chatTyping)
       return { typing }
+    }),
+
+  updateMessageEncrypted: (messageId, chatId) =>
+    set((state) => {
+      const messages = new Map(state.messages)
+      const chatMessages = messages.get(chatId)
+      if (!chatMessages) return state
+      const updated = chatMessages.map((m) =>
+        m.id === messageId ? { ...m, encrypted: true } : m
+      )
+      messages.set(chatId, updated)
+      return { messages }
     }),
 
   markAsRead: (chatId) =>

@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { Avatar } from '../ui/Avatar'
 import { StatusIndicator } from '../ui/StatusIndicator'
 import { NeonButton } from '../ui/NeonButton'
+import { PeerVerifyDialog } from './PeerVerifyDialog'
 import { useConnectionStore } from '../../store/connection-store'
+import { getCryptoManager } from '../../services/CryptoManager'
 import type { PeerProfile } from '../../types/peer'
 import './PeerCard.css'
 
@@ -20,6 +23,9 @@ export function PeerCard({ peer, onChat, onConnect }: PeerCardProps) {
   const connection = useConnectionStore((s) => s.connections.get(peer.id))
   const isConnected = connection?.connectionState === 'connected'
   const isConnecting = connection?.connectionState === 'connecting' || connection?.connectionState === 'signaling'
+  const [showVerify, setShowVerify] = useState(false)
+
+  const isVerified = getCryptoManager().isVerified(peer.id)
 
   const status: 'online' | 'offline' | 'busy' | 'idle' = isConnected
     ? (peer.status ?? 'online')
@@ -28,11 +34,14 @@ export function PeerCard({ peer, onChat, onConnect }: PeerCardProps) {
     : 'offline'
 
   return (
-    <div className="peer-card">
+    <div className="peer-card" role="article" aria-label={`${peer.displayName}, ${status}`} tabIndex={0}>
       <div className="peer-card-header">
         <Avatar name={peer.displayName} src={peer.avatarDataUrl} size="medium" status={status} />
         <div className="peer-card-info">
-          <span className="peer-card-name">{peer.displayName}</span>
+          <span className="peer-card-name">
+            {peer.displayName}
+            {isVerified && <span className="peer-card-verified" title="Verified">&#10003;</span>}
+          </span>
           <span className="peer-card-id">{peer.id.slice(0, 16)}...</span>
         </div>
         <StatusIndicator status={status} size="small" label={status} />
@@ -47,9 +56,14 @@ export function PeerCard({ peer, onChat, onConnect }: PeerCardProps) {
       </div>
       <div className="peer-card-actions">
         {isConnected ? (
-          <NeonButton size="small" onClick={() => onChat?.(peer.id)}>
-            Chat
-          </NeonButton>
+          <>
+            <NeonButton size="small" onClick={() => onChat?.(peer.id)}>
+              Chat
+            </NeonButton>
+            <NeonButton size="small" variant="secondary" onClick={() => setShowVerify(true)}>
+              Verify
+            </NeonButton>
+          </>
         ) : (
           <NeonButton
             size="small"
@@ -61,6 +75,11 @@ export function PeerCard({ peer, onChat, onConnect }: PeerCardProps) {
           </NeonButton>
         )}
       </div>
+      <PeerVerifyDialog
+        peerId={peer.id}
+        isOpen={showVerify}
+        onClose={() => setShowVerify(false)}
+      />
     </div>
   )
 }

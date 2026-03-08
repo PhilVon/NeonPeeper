@@ -29,6 +29,9 @@ export interface TrustedPeer {
 export class CryptoManager {
   private keyPair: CryptoKeyPair | null = null
   private trustedPeers = new Map<string, TrustedPeer>()
+  private dhKeyPair: CryptoKeyPair | null = null
+  private sharedKeys = new Map<string, CryptoKey>()
+  private _dhPublicKeyHex: string = ''
 
   // --- Key Generation ---
 
@@ -64,6 +67,96 @@ export class CryptoManager {
     const hash = await crypto.subtle.digest('SHA-256', publicKeyBytes)
     // Take first 16 bytes (128 bits), hex encode → 32 char hex string
     return this.bufferToHex(hash.slice(0, 16))
+  }
+
+  // --- Diffie-Hellman Key Exchange ---
+
+  async initDHKeyPair(): Promise<void> {
+    try {
+      // Try X25519 first (not widely supported yet)
+      this.dhKeyPair = await crypto.subtle.generateKey(
+        { name: 'ECDH', namedCurve: 'P-256' },
+        true,
+        ['deriveKey', 'deriveBits']
+      )
+    } catch {
+      // Fallback already using P-256
+      this.dhKeyPair = await crypto.subtle.generateKey(
+        { name: 'ECDH', namedCurve: 'P-256' },
+        true,
+        ['deriveKey', 'deriveBits']
+      )
+    }
+    const raw = await crypto.subtle.exportKey('raw', this.dhKeyPair.publicKey)
+    this._dhPublicKeyHex = this.bufferToHex(raw)
+  }
+
+  getDHPublicKeyHex(): string {
+    return this._dhPublicKeyHex
+  }
+
+  async deriveSharedKey(peerId: string, remoteDHHex: string): Promise<void> {
+    if (!this.dhKeyPair) return
+
+    const remoteKeyBytes = this.hexToBuffer(remoteDHHex)
+    const remotePublicKey = await crypto.subtle.importKey(
+      'raw',
+      remoteKeyBytes,
+      { name: 'ECDH', namedCurve: 'P-256' },
+      false,
+      []
+    )
+
+    const sharedKey = await crypto.subtle.deriveKey(
+      { name: 'ECDH', public: remotePublicKey },
+      this.dhKeyPair.privateKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    )
+
+    this.sharedKeys.set(peerId, sharedKey)
+  }
+
+  async encryptPayload(peerId: string, plaintext: string): Promise<{ ciphertext: string; iv: string }> {
+    const key = this.sharedKeys.get(peerId)
+    if (!key) throw new Error('No shared key for peer')
+
+    const iv = crypto.getRandomValues(new Uint8Array(12))
+    const encoder = new TextEncoder()
+    const data = encoder.encode(plaintext)
+
+    const encrypted = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      data
+    )
+
+    return {
+      ciphertext: this.bufferToHex(encrypted),
+      iv: this.bufferToHex(iv.buffer as ArrayBuffer),
+    }
+  }
+
+  async decryptPayload(peerId: string, ciphertextHex: string, ivHex: string): Promise<string> {
+    const key = this.sharedKeys.get(peerId)
+    if (!key) throw new Error('No shared key for peer')
+
+    const ciphertext = this.hexToBuffer(ciphertextHex)
+    const iv = this.hexToBuffer(ivHex)
+
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      ciphertext
+    )
+
+    const decoder = new TextDecoder()
+    return decoder.decode(decrypted)
+  }
+
+  hasSharedKey(peerId: string): boolean {
+    return this.sharedKeys.has(peerId)
   }
 
   // --- Message Signing ---

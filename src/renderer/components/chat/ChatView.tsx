@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from 'react'
+import { useRef, useEffect, useCallback, useState, useMemo } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useChatStore } from '../../store/chat-store'
 import { usePeerStore } from '../../store/peer-store'
@@ -7,13 +7,18 @@ import { useEmojiStore } from '../../store/emoji-store'
 import { ChatHeader } from './ChatHeader'
 import { ChatMessage } from './ChatMessage'
 import { ChatInput } from './ChatInput'
+import { FileTransferProgress } from './FileTransferProgress'
 import { TypingIndicator } from './TypingIndicator'
 import { SplitPane } from '../layout/SplitPane'
 import { ChatVideoPanel } from '../media/ChatVideoPanel'
 import { ScreenSourcePicker } from '../media/ScreenSourcePicker'
+import { useUIStore } from '../../store/ui-store'
 import { getPersistenceManager } from '../../services/PersistenceManager'
 import { getConnectionManager } from '../../services/ConnectionManager'
+import { getCryptoManager } from '../../services/CryptoManager'
+import { getFileTransferManager } from '../../services/FileTransferManager'
 import { getMediaManager } from '../../services/MediaManager'
+import { useSettingsStore } from '../../store/settings-store'
 import { createMessage, PROTOCOL_CONSTANTS } from '../../types/protocol'
 import type { GifMeta } from '../../types/protocol'
 import { toast } from '../../store/toast-store'
@@ -54,20 +59,89 @@ export function ChatView({ chat }: ChatViewProps) {
     useChatStore.getState().markAsRead(chat.id)
   }, [chat.id])
 
-  // Send read receipts for unread messages
+  // Auto read receipts via IntersectionObserver
+  const sentReadReceipts = useRef(new Set<string>())
+  const windowFocused = useUIStore((s) => s.windowFocused)
+
+  // Build a map of unread peer messages for quick lookup
+  const unreadPeerMessages = useMemo(() => {
+    const map = new Map<string, { from: string }>()
+    for (const m of messages) {
+      if (m.from !== localId && m.status !== 'read') {
+        map.set(m.id, { from: m.from })
+      }
+    }
+    return map
+  }, [messages, localId])
+
   useEffect(() => {
-    const cm = getConnectionManager()
-    const unreadMessages = messages.filter(
-      (m) => m.from !== localId && m.status !== 'read'
-    )
-    for (const msg of unreadMessages) {
-      const ackMsg = createMessage('TEXT_ACK', localId, msg.from, {
-        messageId: msg.id,
+    const container = messagesContainerRef.current
+    if (!container) return
+
+    const sendReadReceipt = (messageId: string, from: string) => {
+      if (sentReadReceipts.current.has(messageId)) return
+      sentReadReceipts.current.add(messageId)
+      const cm = getConnectionManager()
+      const ackMsg = createMessage('TEXT_ACK', localId, from, {
+        messageId,
         status: 'read',
       }, chat.id)
-      cm.sendMessage(msg.from, ackMsg)
+      cm.sendMessage(from, ackMsg)
+      useChatStore.getState().updateMessageStatus(messageId, chat.id, 'read')
     }
-  }, [chat.id, messages.length, localId])
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!useUIStore.getState().windowFocused) return
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue
+          const el = entry.target as HTMLElement
+          const msgId = el.dataset.messageId
+          if (!msgId) continue
+          const info = unreadPeerMessages.get(msgId)
+          if (info) {
+            sendReadReceipt(msgId, info.from)
+          }
+        }
+      },
+      { root: container, threshold: 0.5 }
+    )
+
+    // Observe all message elements
+    const messageEls = container.querySelectorAll('[data-message-id]')
+    messageEls.forEach((el) => observer.observe(el))
+
+    return () => observer.disconnect()
+  }, [chat.id, localId, unreadPeerMessages])
+
+  // Re-check visible messages when window regains focus
+  useEffect(() => {
+    if (!windowFocused) return
+    const container = messagesContainerRef.current
+    if (!container) return
+
+    const messageEls = container.querySelectorAll('[data-message-id]')
+    const containerRect = container.getBoundingClientRect()
+    const cm = getConnectionManager()
+
+    messageEls.forEach((el) => {
+      const rect = el.getBoundingClientRect()
+      const visible = rect.top < containerRect.bottom && rect.bottom > containerRect.top
+      if (!visible) return
+      const msgId = (el as HTMLElement).dataset.messageId
+      if (!msgId || sentReadReceipts.current.has(msgId)) return
+      const info = unreadPeerMessages.get(msgId)
+      if (info) {
+        sentReadReceipts.current.add(msgId)
+        const ackMsg = createMessage('TEXT_ACK', localId, info.from, {
+          messageId: msgId,
+          status: 'read',
+        }, chat.id)
+        cm.sendMessage(info.from, ackMsg)
+        useChatStore.getState().updateMessageStatus(msgId, chat.id, 'read')
+      }
+    })
+  }, [windowFocused, chat.id, localId, unreadPeerMessages])
 
   // Scroll-up pagination
   const handleScroll = useCallback(() => {
@@ -93,7 +167,7 @@ export function ChatView({ chat }: ChatViewProps) {
   }, [chat.id, messages])
 
   const handleSend = useCallback(
-    (content: string, contentType?: 'text' | 'gif', meta?: GifMeta) => {
+    async (content: string, contentType?: 'text' | 'gif', meta?: GifMeta) => {
       if (contentType !== 'gif' && content.length > PROTOCOL_CONSTANTS.MAX_TEXT_LENGTH) {
         toast.error(`Message too long (max ${PROTOCOL_CONSTANTS.MAX_TEXT_LENGTH} characters)`)
         return
@@ -158,15 +232,28 @@ export function ChatView({ chat }: ChatViewProps) {
       }).catch(() => {})
 
       const cm = getConnectionManager()
+      const crypto = getCryptoManager()
+      const e2eEnabled = useSettingsStore.getState().e2eEncryption
+
       for (const memberId of chat.members) {
         if (memberId === localId) continue
 
+        let encrypted: { ciphertext: string; iv: string } | undefined
+        if (e2eEnabled && crypto.hasSharedKey(memberId) && contentType !== 'gif') {
+          try {
+            encrypted = await crypto.encryptPayload(memberId, content)
+          } catch {
+            // Send unencrypted on failure
+          }
+        }
+
         const msg = createMessage('TEXT', localId, memberId, {
-          content,
+          content: encrypted ? '' : content,
           replyTo: replyTo?.id,
           contentType,
           meta,
           customEmojis,
+          encrypted,
         }, chat.id)
         ;(msg as { id: string }).id = messageId
 
@@ -175,6 +262,11 @@ export function ChatView({ chat }: ChatViewProps) {
             useChatStore.getState().updateMessageStatus(messageId, chat.id, 'sent')
           }
         })
+      }
+
+      // Mark local message as encrypted if we encrypted it
+      if (e2eEnabled && chat.members.some((m) => m !== localId && crypto.hasSharedKey(m))) {
+        useChatStore.getState().updateMessageEncrypted(messageId, chat.id)
       }
     },
     [chat, localId, replyTo]
@@ -242,6 +334,18 @@ export function ChatView({ chat }: ChatViewProps) {
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content).catch(() => {})
   }
+
+  const handleAttachFile = useCallback((file: File) => {
+    // Send file to first connected member
+    const targetPeer = chat.members.find(
+      (m) => m !== localId && getConnectionManager().isConnected(m)
+    )
+    if (!targetPeer) {
+      toast.error('No connected peer to send file to')
+      return
+    }
+    getFileTransferManager().offerFile(targetPeer, chat.id, file)
+  }, [chat, localId])
 
   // --- Video sharing handlers ---
 
@@ -415,9 +519,11 @@ export function ChatView({ chat }: ChatViewProps) {
         <div ref={messagesEndRef} />
       </div>
       <TypingIndicator chatId={chat.id} />
+      <FileTransferProgress chatId={chat.id} />
       <ChatInput
         onSend={handleSend}
         onTyping={handleTyping}
+        onAttachFile={handleAttachFile}
         replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)}
         editingMessage={editingMessage}

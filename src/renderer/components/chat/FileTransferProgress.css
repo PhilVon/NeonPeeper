@@ -1,0 +1,90 @@
+.file-transfer-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-md);
+}
+
+.file-transfer-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  background: var(--bg-medium);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+}
+
+.file-transfer-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-transfer-name {
+  display: block;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-transfer-size {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.file-transfer-progress-bar {
+  width: 80px;
+  height: 6px;
+  background: var(--bg-darkest);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.file-transfer-progress-fill {
+  height: 100%;
+  background: var(--neon-cyan);
+  transition: width 0.2s;
+  border-radius: 3px;
+}
+
+.file-transfer-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.file-transfer-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+}
+
+.file-transfer-btn:hover {
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+}
+
+.file-transfer-btn-danger:hover {
+  border-color: var(--neon-red);
+  color: var(--neon-red);
+}
+
+.file-transfer-download {
+  color: var(--neon-green);
+  text-decoration: none;
+  font-size: var(--font-size-xs);
+}
+
+.file-transfer-download:hover {
+  text-decoration: underline;
+}
+
+.file-transfer-status {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}

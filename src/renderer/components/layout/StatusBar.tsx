@@ -1,4 +1,5 @@
 import { StatusIndicator } from '../ui/StatusIndicator'
+import packageJson from '../../../../package.json'
 import './StatusBar.css'
 
 interface StatusBarProps {
@@ -10,7 +11,7 @@ interface StatusBarProps {
 export function StatusBar({
   status = 'online',
   statusText = 'Ready',
-  version = '1.0.0'
+  version = packageJson.version
 }: StatusBarProps) {
   return (
     <footer className="statusbar">
