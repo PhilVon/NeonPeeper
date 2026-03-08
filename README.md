@@ -41,6 +41,7 @@ A peer-to-peer chat and video calling desktop application with a cyberpunk/neon 
 - **TOFU Key Pinning** — Trust-on-first-use identity verification with change alerts
 - **Safety Numbers** — Verify peer identity out-of-band with a visual verification dialog and verified badge
 - **End-to-End Encryption** — Optional E2E encryption using ECDH P-256 key exchange and AES-256-GCM, with a per-message lock icon indicator
+- **Ephemeral Messages** — Auto-delete sent messages after a configurable TTL (30s to 7d); both sender and receiver delete independently
 - **Context Isolation** — Electron security best practices with `contextIsolation: true` and `nodeIntegration: false`
 
 ### Personalization

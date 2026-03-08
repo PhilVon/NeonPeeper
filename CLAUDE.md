@@ -35,13 +35,13 @@ src/
 │   │   ├── chat/      # ChatView, ChatList, ChatInput, ChatMessage, ChatHeader, TypingIndicator, GroupMemberList, CustomEmojiPicker
 │   │   ├── media/     # ChatVideoPanel, VideoGrid, VideoTile, MediaControls, DeviceSelector, ScreenShareView, ScreenSourcePicker, QualityIndicator
 │   │   ├── peers/     # PeerList, PeerCard, PeerInvite, ConnectionDialog
-│   │   ├── settings/  # MediaSettings, NetworkSettings, QualitySettings, EmojiManager
+│   │   ├── settings/  # MediaSettings, NetworkSettings, QualitySettings, EmojiManager, PrivacySettings
 │   │   ├── layout/    # MainLayout, TitleBar, Sidebar, StatusBar, SplitPane, ResizablePanel, Collapsible
 │   │   ├── ui/        # NeonButton, NeonCard, NeonInput, Modal, Toast, Tabs, Avatar, Badge, DataTable, ImageEditor, etc.
 │   │   ├── demo/      # DemoSuite with pages for component showcase
 │   │   └── utils/     # Portal
 │   ├── hooks/         # useClickOutside, useEscapeKey, useFocusTrap, useMediaStream, useSpeakingDetection, useTypingEffect, useTextScramble, useCountUp, useReplayAnimation
-│   ├── services/      # ConnectionManager, MessageRouter, MediaManager, CryptoManager, SignalingClient, PersistenceManager, PerformanceMonitor, SFUClient
+│   ├── services/      # ConnectionManager, MessageRouter, MediaManager, CryptoManager, SignalingClient, PersistenceManager, PerformanceMonitor, SFUClient, EphemeralMessageManager
 │   ├── store/         # Zustand stores (chat, connection, emoji, media, peer, performance, settings, toast, ui)
 │   ├── styles/        # CSS variables, globals, animations
 │   ├── types/         # protocol.ts, peer.ts, chat.ts, media.ts
@@ -86,6 +86,8 @@ Defined in `src/renderer/types/protocol.ts`. 25 message types in 6 categories:
 
 Envelope: `NeonP2PMessage<T>` with `version`, `type`, `id`, `from`, `to`, `chatId`, `timestamp`, `payload`, optional `signature`. Discriminated unions via `PayloadMap`. Helper: `createMessage<T>()`.
 
+`TextPayload` includes optional `ttl?: number` (ms) for ephemeral messages — 0 or absent means no auto-delete.
+
 Types also defined in `src/renderer/types/emoji.ts`: `CustomEmoji` (own emoji with id, shortcode, dataUrl) and `EmbeddedEmoji` (shortcode + dataUrl sent inline with TEXT messages).
 
 ### Services
@@ -99,6 +101,7 @@ All services are singletons accessed via `getXxxManager()` / `getXxxClient()`.
 - **PersistenceManager** — IndexedDB via `idb` library (database: `neon-peeper-chat`). Stores: `messages` and `chats` with indexes for pagination and filtering.
 - **CryptoManager** — Web Crypto API for Ed25519/P-256 signing, TOFU trust, safety numbers, passphrase-encrypted key storage.
 - **PerformanceMonitor** — Polls `RTCPeerConnection.getStats()` every 2s. Computes bandwidth, RTT, packet loss, jitter, quality grade. Adaptive bitrate hysteresis.
+- **EphemeralMessageManager** — Interval-based sweep (5s) that auto-deletes messages with expired TTL from both chat store and IndexedDB. Reschedules on app startup from persisted messages.
 - **SFUClient** — Stub for mediasoup SFU integration (7+ peers). Exports topology selection and simulcast config.
 
 ### State Management (Zustand)
@@ -111,7 +114,7 @@ All services are singletons accessed via `getXxxManager()` / `getXxxClient()`.
 | `media-store` | Local/remote streams, mute state, per-chat video sharing, quality | Memory only |
 | `peer-store` | `localProfile`, `peers` | Memory only |
 | `performance-store` | Per-peer stats, aggregate quality | Memory only |
-| `settings-store` | Display name, signaling URL, quality, devices, TURN/STUN | localStorage (`neon-peeper-settings`) |
+| `settings-store` | Display name, signaling URL, quality, devices, TURN/STUN, `messageAutoDeleteTtl` | localStorage (`neon-peeper-settings`) |
 | `toast-store` | Toast notifications queue | Memory only |
 | `ui-store` | `crtEnabled` | Memory only |
 
