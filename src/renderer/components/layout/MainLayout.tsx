@@ -11,21 +11,19 @@ interface SidebarProps {
 }
 
 interface MainLayoutProps {
-  title?: string
   showSidebar?: boolean
   sidebarProps?: SidebarProps
   children: React.ReactNode
 }
 
 export function MainLayout({
-  title = 'Neon App',
   showSidebar = true,
   sidebarProps,
   children
 }: MainLayoutProps) {
   return (
     <div className="main-layout">
-      <TitleBar title={title} />
+      <TitleBar />
       <div className="main-layout-body">
         {showSidebar && <Sidebar {...sidebarProps} />}
         <main className="main-layout-content">

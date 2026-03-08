@@ -1,10 +1,7 @@
+import logoUrl from '../../assets/logo.png'
 import './TitleBar.css'
 
-interface TitleBarProps {
-  title?: string
-}
-
-export function TitleBar({ title = 'Neon App' }: TitleBarProps) {
+export function TitleBar() {
   const handleMinimize = () => window.electronAPI.windowMinimize()
   const handleMaximize = () => window.electronAPI.windowMaximize()
   const handleClose = () => window.electronAPI.windowClose()
@@ -12,7 +9,7 @@ export function TitleBar({ title = 'Neon App' }: TitleBarProps) {
   return (
     <div className="titlebar">
       <div className="titlebar-drag">
-        <span className="titlebar-title">{title}</span>
+        <img src={logoUrl} alt="Neon Peeper" className="titlebar-logo" />
       </div>
       <div className="titlebar-controls">
         <button

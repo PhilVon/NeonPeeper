@@ -405,7 +405,6 @@ export function App() {
   return (
     <div className={`app-container${crtEnabled ? ' crt-effect' : ''}`}>
       <MainLayout
-        title="Neon Peeper"
         showSidebar={true}
         sidebarProps={{
           tabs: SIDEBAR_TABS,
