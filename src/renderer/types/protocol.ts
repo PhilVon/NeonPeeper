@@ -96,6 +96,7 @@ export interface TextPayload {
   meta?: GifMeta
   customEmojis?: EmbeddedEmoji[]
   encrypted?: { ciphertext: string; iv: string }
+  ttl?: number // Auto-delete TTL in ms from timestamp; 0 or absent = no auto-delete
 }
 
 export interface TextAckPayload {

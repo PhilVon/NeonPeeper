@@ -25,6 +25,9 @@ interface SettingsState {
   // Integrations
   giphyApiKey: string
 
+  // Privacy
+  messageAutoDeleteTtl: number // 0 = disabled
+
   // SFU
   sfuEnabled: boolean
 
@@ -49,6 +52,7 @@ interface SettingsState {
   setCameraDeviceId: (id: string) => void
   setMicDeviceId: (id: string) => void
   setSpeakerDeviceId: (id: string) => void
+  setMessageAutoDeleteTtl: (ttl: number) => void
   setSfuEnabled: (enabled: boolean) => void
   setStunServers: (servers: string[]) => void
   setTurnServer: (server: string) => void
@@ -76,6 +80,8 @@ export const useSettingsStore = create<SettingsState>()(
 
       giphyApiKey: '',
 
+      messageAutoDeleteTtl: 0,
+
       sfuEnabled: true,
 
       stunServers: ['stun:stun.l.google.com:19302'],
@@ -97,6 +103,7 @@ export const useSettingsStore = create<SettingsState>()(
       setCameraDeviceId: (id) => set({ cameraDeviceId: id }),
       setMicDeviceId: (id) => set({ micDeviceId: id }),
       setSpeakerDeviceId: (id) => set({ speakerDeviceId: id }),
+      setMessageAutoDeleteTtl: (ttl) => set({ messageAutoDeleteTtl: ttl }),
       setSfuEnabled: (enabled) => set({ sfuEnabled: enabled }),
       setStunServers: (servers) => set({ stunServers: servers }),
       setTurnServer: (server) => set({ turnServer: server }),

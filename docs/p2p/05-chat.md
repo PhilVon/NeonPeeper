@@ -14,6 +14,7 @@
 - [IndexedDB Persistence](#indexeddb-persistence)
 - [Chat Store](#chat-store)
 - [Group Chat Routing](#group-chat-routing)
+- [Ephemeral Messages (Auto-Delete)](#ephemeral-messages-auto-delete)
 
 ---
 
@@ -700,6 +701,36 @@ The key distinction: **`peer-left` with `roomId`** means crash/disconnect (trans
 ### Signaling Unavailable
 
 When the signaling server is unreachable, all room operations (`joinRoom`, `leaveRoom`) silently no-op because `send()` checks `ws.readyState === WebSocket.OPEN`. Chat still works fully over existing DataChannel connections — only room-based crash detection is lost.
+
+---
+
+## Ephemeral Messages (Auto-Delete)
+
+Messages can carry a `ttl` field (time-to-live in milliseconds). When present and > 0, both sender and receiver independently schedule the message for deletion after `timestamp + ttl`.
+
+### How It Works
+
+1. Sender sets `messageAutoDeleteTtl` in Settings > Network > Privacy
+2. Each outgoing TEXT message includes `ttl` in its payload
+3. `EphemeralMessageManager` runs a sweep every 5 seconds, deleting expired messages from the chat store and IndexedDB
+4. On app restart, all persisted messages with TTL are rescheduled; already-expired messages are cleaned up on the first sweep
+
+### Supported TTL Values
+
+| Duration | Value (ms) |
+|----------|-----------|
+| 30 seconds | 30,000 |
+| 5 minutes | 300,000 |
+| 1 hour | 3,600,000 |
+| 24 hours | 86,400,000 |
+| 7 days | 604,800,000 |
+
+### Edge Cases
+
+- **App restart**: Messages are rescheduled from IndexedDB; already-expired ones are deleted on first sweep
+- **Manual delete before TTL**: Idempotent — sweep silently skips already-deleted messages
+- **Edited message**: TTL continues from original timestamp (edit does not reset the timer)
+- **Clock skew**: Inherent trade-off; 30s minimum TTL provides margin for typical drift
 
 ---
 

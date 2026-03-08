@@ -18,6 +18,7 @@ import { getConnectionManager } from '../../services/ConnectionManager'
 import { getCryptoManager } from '../../services/CryptoManager'
 import { getFileTransferManager } from '../../services/FileTransferManager'
 import { getMediaManager } from '../../services/MediaManager'
+import { getEphemeralMessageManager } from '../../services/EphemeralMessageManager'
 import { useSettingsStore } from '../../store/settings-store'
 import { createMessage, PROTOCOL_CONSTANTS } from '../../types/protocol'
 import type { GifMeta } from '../../types/protocol'
@@ -202,6 +203,7 @@ export function ChatView({ chat }: ChatViewProps) {
 
       const messageId = uuidv4()
       const now = Date.now()
+      const ttl = useSettingsStore.getState().messageAutoDeleteTtl
 
       const chatMessage: ChatMessageType = {
         id: messageId,
@@ -214,6 +216,7 @@ export function ChatView({ chat }: ChatViewProps) {
         contentType,
         meta,
         customEmojis,
+        ...(ttl > 0 ? { ttl } : {}),
       }
 
       // Check total message size
@@ -224,6 +227,9 @@ export function ChatView({ chat }: ChatViewProps) {
       }
 
       useChatStore.getState().addMessage(chatMessage)
+      if (ttl > 0) {
+        getEphemeralMessageManager().scheduleDelete(messageId, chat.id, now, ttl)
+      }
       setReplyTo(null)
 
       getPersistenceManager().storeMessage({
@@ -254,6 +260,7 @@ export function ChatView({ chat }: ChatViewProps) {
           meta,
           customEmojis,
           encrypted,
+          ...(ttl > 0 ? { ttl } : {}),
         }, chat.id)
         ;(msg as { id: string }).id = messageId
 
