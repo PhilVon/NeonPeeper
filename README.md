@@ -73,15 +73,19 @@ npm run dev
 
 ### Signaling Server (optional)
 
-The signaling server helps peers discover each other. It does not relay messages — all communication is direct P2P.
+The signaling server helps peers discover each other and, when SFU mode is active (7+ peers), routes media through mediasoup so each client uploads once regardless of group size.
+
+**Prerequisites for SFU:** mediasoup requires native C++ compilation.
+- **Windows:** Python 3, Visual Studio Build Tools with the "Desktop development with C++" workload
+- **Linux/macOS:** Python 3, make, gcc/g++
 
 ```bash
 cd signaling-server
-npm install
+npm install        # Also compiles mediasoup native worker
 npm run dev
 ```
 
-The signaling server runs on port 8080 by default.
+The signaling server runs on port 8080 by default. If mediasoup compilation fails, the server still starts — SFU features will be unavailable and calls will remain in mesh mode.
 
 ## Building
 
