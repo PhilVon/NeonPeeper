@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="src/renderer/assets/logo.png" alt="Neon Peeper" width="128" />
+</p>
+
 # Neon Peeper
 
 > **Work in Progress** — This project is under active development. Features may be incomplete, unstable, or subject to change.
