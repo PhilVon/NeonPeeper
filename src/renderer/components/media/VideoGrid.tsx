@@ -22,7 +22,11 @@ export function VideoGrid() {
     ? 'video-grid-2'
     : totalParticipants <= 4
     ? 'video-grid-4'
-    : 'video-grid-6'
+    : totalParticipants <= 6
+    ? 'video-grid-6'
+    : totalParticipants <= 9
+    ? 'video-grid-9'
+    : 'video-grid-large'
 
   return (
     <div className="video-grid-container">

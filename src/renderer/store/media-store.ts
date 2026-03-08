@@ -1,6 +1,13 @@
 import { create } from 'zustand'
 import type { QualityPreset } from '../types/protocol'
 import type { RemoteStream } from '../types/media'
+import type { Topology } from '../services/SFUClient'
+
+interface SFUConsumerState {
+  peerId: string
+  kind: string
+  paused: boolean
+}
 
 interface MediaState {
   localCameraStream: MediaStream | null
@@ -13,6 +20,12 @@ interface MediaState {
   videoSharingChatIds: Set<string>
   chatVideoParticipants: Map<string, Set<string>>
   peerMediaTypes: Record<string, string[]>
+
+  // SFU state
+  topology: Topology
+  sfuProducers: Map<string, string> // trackId -> producerId
+  sfuConsumers: Map<string, SFUConsumerState> // consumerId -> info
+  activeSpeakerPeerId: string | null
 
   setLocalCameraStream: (stream: MediaStream | null) => void
   setLocalScreenStream: (stream: MediaStream | null) => void
@@ -31,6 +44,16 @@ interface MediaState {
   removePeerMediaType: (peerId: string, mediaType: string) => void
   clearPeerMediaTypes: (peerId: string) => void
   clearAllStreams: () => void
+
+  // SFU actions
+  setTopology: (topology: Topology) => void
+  setSFUProducer: (trackId: string, producerId: string) => void
+  removeSFUProducer: (trackId: string) => void
+  addSFUConsumer: (consumerId: string, info: SFUConsumerState) => void
+  removeSFUConsumer: (consumerId: string) => void
+  setActiveSpeaker: (peerId: string | null) => void
+  pauseSFUConsumer: (consumerId: string) => void
+  resumeSFUConsumer: (consumerId: string) => void
 }
 
 export const useMediaStore = create<MediaState>((set) => ({
@@ -44,6 +67,12 @@ export const useMediaStore = create<MediaState>((set) => ({
   videoSharingChatIds: new Set(),
   chatVideoParticipants: new Map(),
   peerMediaTypes: {},
+
+  // SFU initial state
+  topology: 'direct',
+  sfuProducers: new Map(),
+  sfuConsumers: new Map(),
+  activeSpeakerPeerId: null,
 
   setLocalCameraStream: (stream) => set({ localCameraStream: stream }),
   setLocalScreenStream: (stream) => set({ localScreenStream: stream }),
@@ -162,6 +191,62 @@ export const useMediaStore = create<MediaState>((set) => ({
         videoSharingChatIds: new Set(),
         chatVideoParticipants: new Map(),
         peerMediaTypes: {},
+        sfuProducers: new Map(),
+        sfuConsumers: new Map(),
+        activeSpeakerPeerId: null,
       }
+    }),
+
+  // SFU actions
+  setTopology: (topology) => set({ topology }),
+
+  setSFUProducer: (trackId, producerId) =>
+    set((state) => {
+      const sfuProducers = new Map(state.sfuProducers)
+      sfuProducers.set(trackId, producerId)
+      return { sfuProducers }
+    }),
+
+  removeSFUProducer: (trackId) =>
+    set((state) => {
+      const sfuProducers = new Map(state.sfuProducers)
+      sfuProducers.delete(trackId)
+      return { sfuProducers }
+    }),
+
+  addSFUConsumer: (consumerId, info) =>
+    set((state) => {
+      const sfuConsumers = new Map(state.sfuConsumers)
+      sfuConsumers.set(consumerId, info)
+      return { sfuConsumers }
+    }),
+
+  removeSFUConsumer: (consumerId) =>
+    set((state) => {
+      const sfuConsumers = new Map(state.sfuConsumers)
+      sfuConsumers.delete(consumerId)
+      return { sfuConsumers }
+    }),
+
+  setActiveSpeaker: (peerId) => set({ activeSpeakerPeerId: peerId }),
+
+  pauseSFUConsumer: (consumerId) =>
+    set((state) => {
+      const sfuConsumers = new Map(state.sfuConsumers)
+      const existing = sfuConsumers.get(consumerId)
+      if (existing) {
+        sfuConsumers.set(consumerId, { ...existing, paused: true })
+      }
+      return { sfuConsumers }
+    }),
+
+  resumeSFUConsumer: (consumerId) =>
+    set((state) => {
+      const sfuConsumers = new Map(state.sfuConsumers)
+      const existing = sfuConsumers.get(consumerId)
+      if (existing) {
+        sfuConsumers.set(consumerId, { ...existing, paused: false })
+      }
+      return { sfuConsumers }
     }),
 }))

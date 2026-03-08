@@ -5,9 +5,59 @@ import { QUALITY_PRESETS } from '../types/media'
 import type { QualityPreset } from '../types/protocol'
 import { createMessage } from '../types/protocol'
 import { getConnectionManager } from './ConnectionManager'
+import { getSFUClient, type Topology } from './SFUClient'
 
 export class MediaManager {
   private localStream: MediaStream | null = null
+  private topology: Topology = 'direct'
+
+  setTopology(topology: Topology): void {
+    this.topology = topology
+    useMediaStore.getState().setTopology(topology)
+  }
+
+  getTopology(): Topology {
+    return this.topology
+  }
+
+  async handleTopologySwitch(from: Topology, to: Topology): Promise<void> {
+    if (from !== 'sfu' && to === 'sfu') {
+      // mesh → SFU: produce all local tracks via SFU, remove from peer connections
+      const sfu = getSFUClient()
+      const cm = getConnectionManager()
+
+      if (this.localStream) {
+        for (const track of this.localStream.getTracks()) {
+          try {
+            const producerId = await sfu.produce(track, track.kind === 'video')
+            useMediaStore.getState().setSFUProducer(track.id, producerId)
+          } catch (err) {
+            console.error('[MediaManager] Failed to produce track via SFU:', err)
+          }
+        }
+
+        // Remove media tracks from peer connections (keep DataChannels)
+        for (const peerId of cm.getConnectedPeerIds()) {
+          this.removeTracksFromConnection(peerId)
+        }
+      }
+    } else if (from === 'sfu' && to !== 'sfu') {
+      // SFU → mesh: disconnect SFU, re-add tracks to peer connections
+      const sfu = getSFUClient()
+      const cm = getConnectionManager()
+
+      await sfu.disconnect()
+      useMediaStore.getState().setTopology(to)
+
+      if (this.localStream) {
+        for (const peerId of cm.getConnectedPeerIds()) {
+          this.addTracksToConnection(peerId)
+        }
+      }
+    }
+
+    this.setTopology(to)
+  }
 
   async startMicOnly(): Promise<MediaStream> {
     const settings = useSettingsStore.getState()
@@ -45,11 +95,36 @@ export class MediaManager {
 
     this.localStream = await navigator.mediaDevices.getUserMedia(constraints)
     useMediaStore.getState().setLocalCameraStream(this.localStream)
+
+    // If in SFU mode, produce tracks via SFU
+    if (this.topology === 'sfu') {
+      const sfu = getSFUClient()
+      if (sfu.isConnected()) {
+        for (const track of this.localStream.getTracks()) {
+          try {
+            const producerId = await sfu.produce(track, track.kind === 'video')
+            useMediaStore.getState().setSFUProducer(track.id, producerId)
+          } catch (err) {
+            console.error('[MediaManager] SFU produce error:', err)
+          }
+        }
+      }
+    }
+
     return this.localStream
   }
 
   stopCamera(): void {
     if (this.localStream) {
+      // Stop SFU producers
+      if (this.topology === 'sfu') {
+        const sfu = getSFUClient()
+        for (const track of this.localStream.getTracks()) {
+          sfu.stopProducing(track.id).catch(() => {})
+          useMediaStore.getState().removeSFUProducer(track.id)
+        }
+      }
+
       this.localStream.getTracks().forEach((t) => t.stop())
       this.localStream = null
       useMediaStore.getState().setLocalCameraStream(null)
@@ -130,14 +205,27 @@ export class MediaManager {
     this.localStream.addTrack(newTrack)
     oldVideoTrack.stop()
 
-    // Replace track on all peer connections
-    const cm = getConnectionManager()
-    for (const peerId of cm.getConnectedPeerIds()) {
-      const pc = cm.getPeerConnection(peerId)
-      if (!pc) continue
-      const sender = pc.getSenders().find((s) => s.track?.kind === 'video')
-      if (sender) {
-        await sender.replaceTrack(newTrack)
+    if (this.topology === 'sfu') {
+      // SFU path: stop old producer, produce new track
+      const sfu = getSFUClient()
+      await sfu.stopProducing(oldVideoTrack.id)
+      useMediaStore.getState().removeSFUProducer(oldVideoTrack.id)
+      try {
+        const producerId = await sfu.produce(newTrack, true)
+        useMediaStore.getState().setSFUProducer(newTrack.id, producerId)
+      } catch (err) {
+        console.error('[MediaManager] SFU camera switch error:', err)
+      }
+    } else {
+      // Mesh path: replace track on all peer connections
+      const cm = getConnectionManager()
+      for (const peerId of cm.getConnectedPeerIds()) {
+        const pc = cm.getPeerConnection(peerId)
+        if (!pc) continue
+        const sender = pc.getSenders().find((s) => s.track?.kind === 'video')
+        if (sender) {
+          await sender.replaceTrack(newTrack)
+        }
       }
     }
 
@@ -159,13 +247,26 @@ export class MediaManager {
     this.localStream.addTrack(newTrack)
     oldAudioTrack.stop()
 
-    const cm = getConnectionManager()
-    for (const peerId of cm.getConnectedPeerIds()) {
-      const pc = cm.getPeerConnection(peerId)
-      if (!pc) continue
-      const sender = pc.getSenders().find((s) => s.track?.kind === 'audio')
-      if (sender) {
-        await sender.replaceTrack(newTrack)
+    if (this.topology === 'sfu') {
+      // SFU path: stop old producer, produce new track
+      const sfu = getSFUClient()
+      await sfu.stopProducing(oldAudioTrack.id)
+      useMediaStore.getState().removeSFUProducer(oldAudioTrack.id)
+      try {
+        const producerId = await sfu.produce(newTrack, false)
+        useMediaStore.getState().setSFUProducer(newTrack.id, producerId)
+      } catch (err) {
+        console.error('[MediaManager] SFU mic switch error:', err)
+      }
+    } else {
+      const cm = getConnectionManager()
+      for (const peerId of cm.getConnectedPeerIds()) {
+        const pc = cm.getPeerConnection(peerId)
+        if (!pc) continue
+        const sender = pc.getSenders().find((s) => s.track?.kind === 'audio')
+        if (sender) {
+          await sender.replaceTrack(newTrack)
+        }
       }
     }
 
@@ -285,33 +386,46 @@ export class MediaManager {
     this.screenStream = stream
     useMediaStore.getState().setLocalScreenStream(stream)
 
-    // Add screen track to all peer connections and renegotiate
-    const cm = getConnectionManager()
-    const localId = usePeerStore.getState().localProfile?.id ?? ''
-    for (const peerId of cm.getConnectedPeerIds()) {
-      const pc = cm.getPeerConnection(peerId)
-      if (pc) {
-        for (const track of stream.getTracks()) {
-          pc.addTrack(track, stream)
+    if (this.topology === 'sfu') {
+      // SFU path: produce screen track via SFU
+      const sfu = getSFUClient()
+      for (const track of stream.getTracks()) {
+        try {
+          const producerId = await sfu.produce(track, true)
+          useMediaStore.getState().setSFUProducer(track.id, producerId)
+        } catch (err) {
+          console.error('[MediaManager] SFU screen share error:', err)
         }
-        // Renegotiate so remote peer receives the new screen track
-        pc.createOffer()
-          .then((offer) => pc.setLocalDescription(offer).then(() => offer))
-          .then((offer) => {
-            const msg = createMessage('MEDIA_OFFER', localId, peerId, {
-              sdp: offer.sdp!,
-              mediaType: 'screen',
-            }, chatId)
-            cm.sendMessage(peerId, msg)
-          })
-          .catch((err) => console.error('[MediaManager] Screen share renegotiation error:', err))
       }
-    }
+    } else {
+      // Mesh path: add screen track to all peer connections and renegotiate
+      const cm = getConnectionManager()
+      const localId = usePeerStore.getState().localProfile?.id ?? ''
+      for (const peerId of cm.getConnectedPeerIds()) {
+        const pc = cm.getPeerConnection(peerId)
+        if (pc) {
+          for (const track of stream.getTracks()) {
+            pc.addTrack(track, stream)
+          }
+          // Renegotiate so remote peer receives the new screen track
+          pc.createOffer()
+            .then((offer) => pc.setLocalDescription(offer).then(() => offer))
+            .then((offer) => {
+              const msg = createMessage('MEDIA_OFFER', localId, peerId, {
+                sdp: offer.sdp!,
+                mediaType: 'screen',
+              }, chatId)
+              cm.sendMessage(peerId, msg)
+            })
+            .catch((err) => console.error('[MediaManager] Screen share renegotiation error:', err))
+        }
+      }
 
-    // Apply codec preference to connections with screen tracks
-    for (const peerId of cm.getConnectedPeerIds()) {
-      const pc = cm.getPeerConnection(peerId)
-      if (pc) this.applyCodecPreference(pc)
+      // Apply codec preference to connections with screen tracks
+      for (const peerId of cm.getConnectedPeerIds()) {
+        const pc = cm.getPeerConnection(peerId)
+        if (pc) this.applyCodecPreference(pc)
+      }
     }
 
     // Handle stream ending (user clicks "Stop sharing" in OS UI)
@@ -324,39 +438,48 @@ export class MediaManager {
 
   stopScreenShare(chatId?: string): void {
     if (this.screenStream) {
-      // Remove tracks from peer connections, notify, and renegotiate
-      const cm = getConnectionManager()
-      const localId = usePeerStore.getState().localProfile?.id ?? ''
-      const screenTracks = this.screenStream.getTracks()
+      if (this.topology === 'sfu') {
+        // SFU path: stop screen producers
+        const sfu = getSFUClient()
+        for (const track of this.screenStream.getTracks()) {
+          sfu.stopProducing(track.id).catch(() => {})
+          useMediaStore.getState().removeSFUProducer(track.id)
+        }
+      } else {
+        // Mesh path: remove tracks from peer connections, notify, and renegotiate
+        const cm = getConnectionManager()
+        const localId = usePeerStore.getState().localProfile?.id ?? ''
+        const screenTracks = this.screenStream.getTracks()
 
-      for (const peerId of cm.getConnectedPeerIds()) {
-        const pc = cm.getPeerConnection(peerId)
-        if (pc) {
-          const senders = pc.getSenders()
-          for (const sender of senders) {
-            if (sender.track && screenTracks.includes(sender.track)) {
-              pc.removeTrack(sender)
+        for (const peerId of cm.getConnectedPeerIds()) {
+          const pc = cm.getPeerConnection(peerId)
+          if (pc) {
+            const senders = pc.getSenders()
+            for (const sender of senders) {
+              if (sender.track && screenTracks.includes(sender.track)) {
+                pc.removeTrack(sender)
+              }
             }
+
+            // Notify remote peer that screen share stopped
+            const stopMsg = createMessage('MEDIA_STOP', localId, peerId, {
+              mediaType: 'screen',
+              trackId: '',
+            }, chatId)
+            cm.sendMessage(peerId, stopMsg)
+
+            // Renegotiate so remote SDP reflects removed track
+            pc.createOffer()
+              .then((offer) => pc.setLocalDescription(offer).then(() => offer))
+              .then((offer) => {
+                const msg = createMessage('MEDIA_OFFER', localId, peerId, {
+                  sdp: offer.sdp!,
+                  mediaType: 'screen',
+                }, chatId)
+                cm.sendMessage(peerId, msg)
+              })
+              .catch((err) => console.error('[MediaManager] Screen stop renegotiation error:', err))
           }
-
-          // Notify remote peer that screen share stopped
-          const stopMsg = createMessage('MEDIA_STOP', localId, peerId, {
-            mediaType: 'screen',
-            trackId: '',
-          }, chatId)
-          cm.sendMessage(peerId, stopMsg)
-
-          // Renegotiate so remote SDP reflects removed track
-          pc.createOffer()
-            .then((offer) => pc.setLocalDescription(offer).then(() => offer))
-            .then((offer) => {
-              const msg = createMessage('MEDIA_OFFER', localId, peerId, {
-                sdp: offer.sdp!,
-                mediaType: 'screen',
-              }, chatId)
-              cm.sendMessage(peerId, msg)
-            })
-            .catch((err) => console.error('[MediaManager] Screen stop renegotiation error:', err))
         }
       }
 

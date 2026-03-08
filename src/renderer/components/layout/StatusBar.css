@@ -23,3 +23,15 @@
 .statusbar-version {
   color: var(--text-muted);
 }
+
+.statusbar-sfu-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(0, 255, 255, 0.15);
+  border: 1px solid var(--neon-cyan);
+  color: var(--neon-cyan);
+  text-shadow: 0 0 4px var(--neon-cyan);
+  letter-spacing: 0.5px;
+}
