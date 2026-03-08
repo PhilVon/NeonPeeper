@@ -59,10 +59,10 @@ export function App() {
   const activeChat = activeChatId ? chats.get(activeChatId) : undefined
   const isAnyVideoSharing = useMediaStore((s) => s.videoSharingChatIds.size > 0)
 
-  // Settings
   const displayName = useSettingsStore((s) => s.displayName)
   const signalingUrl = useSettingsStore((s) => s.signalingUrl)
   const autoConnect = useSettingsStore((s) => s.autoConnect)
+  const audioBitrate = useSettingsStore((s) => s.audioBitrate)
 
   // Initialize local profile on mount
   useEffect(() => {
@@ -73,6 +73,7 @@ export function App() {
         displayName: useSettingsStore.getState().displayName,
         publicKey: '',
         capabilities: ['text', 'media', 'screen-share'],
+        audioBitrate: useSettingsStore.getState().audioBitrate,
       }
       usePeerStore.getState().setLocalProfile(profile)
 
@@ -94,12 +95,16 @@ export function App() {
     }
   }, [displayName])
 
-  // Sync avatar and broadcast PROFILE_UPDATE to connected peers
+  // Sync avatar and audio bitrate, broadcast PROFILE_UPDATE to connected peers
   const avatarDataUrl = useSettingsStore((s) => s.avatarDataUrl)
   useEffect(() => {
     const profile = usePeerStore.getState().localProfile
     if (profile) {
-      usePeerStore.getState().setLocalProfile({ ...profile, avatarDataUrl: avatarDataUrl || undefined })
+      usePeerStore.getState().setLocalProfile({ 
+        ...profile, 
+        avatarDataUrl: avatarDataUrl || undefined,
+        audioBitrate
+      })
 
       // Broadcast to all connected peers
       const cm = getConnectionManager()
@@ -107,11 +112,12 @@ export function App() {
         const msg = createMessage('PROFILE_UPDATE', profile.id, peerId, {
           displayName: profile.displayName,
           avatarDataUrl: avatarDataUrl || undefined,
+          audioBitrate
         })
         cm.sendMessage(peerId, msg)
       }
     }
-  }, [avatarDataUrl])
+  }, [avatarDataUrl, audioBitrate])
 
   // Initialize PersistenceManager, load chats, and load emoji store
   useEffect(() => {

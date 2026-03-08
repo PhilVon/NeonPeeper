@@ -412,6 +412,7 @@ export class ConnectionManager {
       publicKey: profile.publicKey,
       capabilities: profile.capabilities,
       avatarDataUrl: profile.avatarDataUrl,
+      audioBitrate: profile.audioBitrate,
     })
     this.sendMessage(peerId, msg)
   }

@@ -12,6 +12,8 @@ interface SettingsState {
   // Media settings
   qualityPreset: QualityPreset
   preferredCodec: 'auto' | 'h264' | 'vp8' | 'vp9'
+  audioBitrate: number
+
   cameraDeviceId: string
   micDeviceId: string
   speakerDeviceId: string
@@ -38,6 +40,7 @@ interface SettingsState {
   setMessageSigning: (enabled: boolean) => void
   setQualityPreset: (preset: QualityPreset) => void
   setPreferredCodec: (codec: SettingsState['preferredCodec']) => void
+  setAudioBitrate: (bitrate: number) => void
   setCameraDeviceId: (id: string) => void
   setMicDeviceId: (id: string) => void
   setSpeakerDeviceId: (id: string) => void
@@ -57,6 +60,7 @@ export const useSettingsStore = create<SettingsState>()(
 
       qualityPreset: 'high',
       preferredCodec: 'auto',
+      audioBitrate: 0,
       cameraDeviceId: '',
       micDeviceId: '',
       speakerDeviceId: '',
@@ -79,6 +83,7 @@ export const useSettingsStore = create<SettingsState>()(
       setMessageSigning: (enabled) => set({ messageSigning: enabled }),
       setQualityPreset: (preset) => set({ qualityPreset: preset }),
       setPreferredCodec: (codec) => set({ preferredCodec: codec }),
+      setAudioBitrate: (bitrate) => set({ audioBitrate: bitrate }),
       setCameraDeviceId: (id) => set({ cameraDeviceId: id }),
       setMicDeviceId: (id) => set({ micDeviceId: id }),
       setSpeakerDeviceId: (id) => set({ speakerDeviceId: id }),

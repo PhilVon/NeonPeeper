@@ -211,6 +211,7 @@ export class MediaManager {
     }
 
     this.applyCodecPreference(pc)
+    this.applyAudioBitrate(peerId).catch((err) => console.error('[MediaManager] Audio bitrate error:', err))
   }
 
   removeTracksFromConnection(peerId: string): void {
@@ -221,6 +222,43 @@ export class MediaManager {
     for (const sender of pc.getSenders()) {
       if (sender.track && cameraTracks.includes(sender.track)) {
         pc.removeTrack(sender)
+      }
+    }
+  }
+
+  async applyAudioBitrate(peerId: string): Promise<void> {
+    const localProfile = usePeerStore.getState().localProfile
+    const peerProfile = usePeerStore.getState().peers.get(peerId)
+    if (!localProfile || !peerProfile) return
+
+    const localBitrate = localProfile.audioBitrate || 0
+    const remoteBitrate = peerProfile.audioBitrate || 0
+
+    let targetBitrate = 0
+    if (localBitrate > 0 && remoteBitrate > 0) {
+      targetBitrate = Math.min(localBitrate, remoteBitrate)
+    } else if (localBitrate > 0) {
+      targetBitrate = localBitrate
+    } else if (remoteBitrate > 0) {
+      targetBitrate = remoteBitrate
+    }
+
+    if (targetBitrate === 0) return
+
+    const pc = getConnectionManager().getPeerConnection(peerId)
+    if (!pc) return
+
+    const audioSender = pc.getSenders().find((s) => s.track?.kind === 'audio')
+    if (audioSender) {
+      try {
+        const params = audioSender.getParameters()
+        if (!params.encodings || params.encodings.length === 0) {
+          params.encodings = [{}]
+        }
+        params.encodings[0].maxBitrate = targetBitrate
+        await audioSender.setParameters(params)
+      } catch (err) {
+        console.error('[MediaManager] Failed to apply audio bitrate:', err)
       }
     }
   }
