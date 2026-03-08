@@ -6,6 +6,8 @@ import './NetworkSettings.css'
 export function NetworkSettings() {
   const signalingUrl = useSettingsStore((s) => s.signalingUrl)
   const autoConnect = useSettingsStore((s) => s.autoConnect)
+  const e2eEncryption = useSettingsStore((s) => s.e2eEncryption)
+  const setE2EEncryption = useSettingsStore((s) => s.setE2EEncryption)
   const stunServers = useSettingsStore((s) => s.stunServers)
   const turnServer = useSettingsStore((s) => s.turnServer)
   const turnUsername = useSettingsStore((s) => s.turnUsername)
@@ -62,6 +64,15 @@ export function NetworkSettings() {
         type="password"
         value={turnPassword}
         onChange={(e) => setTurnCredentials(turnUsername, e.target.value)}
+      />
+
+      <h3>Security</h3>
+
+      <Toggle
+        label="End-to-end encryption"
+        checked={e2eEncryption}
+        onChange={(e) => setE2EEncryption(e.target.checked)}
+        color="green"
       />
     </div>
   )

@@ -1,6 +1,7 @@
 import { useChatStore } from '../../store/chat-store'
 import { usePeerStore } from '../../store/peer-store'
 import { useConnectionStore } from '../../store/connection-store'
+import { useArrowNavigation } from '../../hooks/useArrowNavigation'
 import { Avatar } from '../ui/Avatar'
 import { Badge } from '../ui/Badge'
 import type { Chat } from '../../types/chat'
@@ -16,6 +17,7 @@ export function ChatList({ onNewChat }: ChatListProps) {
   const setActiveChat = useChatStore((s) => s.setActiveChat)
   const peers = usePeerStore((s) => s.peers)
   const connections = useConnectionStore((s) => s.connections)
+  const { containerRef, handleKeyDown } = useArrowNavigation({ selector: '.chat-list-item' })
 
   const sortedChats = Array.from(chats.values()).sort(
     (a, b) => b.lastActivity - a.lastActivity
@@ -69,7 +71,13 @@ export function ChatList({ onNewChat }: ChatListProps) {
           <button className="chat-list-new" onClick={onNewChat} title="New Chat">+</button>
         )}
       </div>
-      <div className="chat-list-items">
+      <div
+        className="chat-list-items"
+        role="listbox"
+        aria-label="Conversations"
+        ref={containerRef as React.RefObject<HTMLDivElement>}
+        onKeyDown={handleKeyDown}
+      >
         {sortedChats.length === 0 && (
           <p className="chat-list-empty">No conversations yet</p>
         )}
@@ -83,6 +91,8 @@ export function ChatList({ onNewChat }: ChatListProps) {
               key={chat.id}
               className={`chat-list-item ${isActive ? 'chat-list-item-active' : ''}`}
               onClick={() => setActiveChat(chat.id)}
+              role="option"
+              aria-selected={isActive}
             >
               <Avatar name={displayName} src={getChatAvatar(chat)} size="small" status={status} />
               <div className="chat-list-item-info">

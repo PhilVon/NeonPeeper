@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Avatar } from '../ui/Avatar'
 import { useSpeakingDetection } from '../../hooks/useSpeakingDetection'
 import './VideoTile.css'
@@ -29,15 +29,39 @@ export function VideoTile({
   const videoRef = useRef<HTMLVideoElement>(null)
   const tileRef = useRef<HTMLDivElement>(null)
   const { isSpeaking } = useSpeakingDetection(stream, tileRef)
+  const [isVisible, setIsVisible] = useState(true)
 
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.srcObject = stream
-      if (stream) {
+      if (stream && isVisible) {
         videoRef.current.play().catch(() => {})
       }
     }
-  }, [stream, videoEnabled])
+  }, [stream, videoEnabled, isVisible])
+
+  // Off-screen video pause via IntersectionObserver
+  useEffect(() => {
+    const tile = tileRef.current
+    if (!tile) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting)
+        if (videoRef.current) {
+          if (entry.isIntersecting) {
+            videoRef.current.play().catch(() => {})
+          } else {
+            videoRef.current.pause()
+          }
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    observer.observe(tile)
+    return () => observer.disconnect()
+  }, [])
 
   const hasVideo = stream && videoEnabled && stream.getVideoTracks().some((t) => t.enabled)
   const speaking = isSpeaking || isActiveSpeaker
@@ -50,6 +74,7 @@ export function VideoTile({
         speaking && 'video-tile-speaking',
         mirrored && 'video-tile-mirrored',
       ].filter(Boolean).join(' ')}
+      aria-label={`${name}${muted ? ', muted' : ''}${speaking ? ', speaking' : ''}`}
     >
       <video
         ref={videoRef}

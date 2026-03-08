@@ -16,6 +16,7 @@ export interface ChatMessage {
   contentType?: 'text' | 'gif'
   meta?: GifMeta
   customEmojis?: EmbeddedEmoji[]
+  encrypted?: boolean
 }
 
 export type ChatType = 'direct' | 'group'

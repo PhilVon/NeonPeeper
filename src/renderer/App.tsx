@@ -78,8 +78,9 @@ export function App() {
       }
       usePeerStore.getState().setLocalProfile(profile)
 
-      // Generate crypto keypair and update publicKey
+      // Generate crypto keypair and DH keypair, update publicKey
       getCryptoManager().generateKeyPair()
+        .then(() => getCryptoManager().initDHKeyPair())
         .then(() => getCryptoManager().getPublicKeyHex())
         .then((publicKey) => {
           const current = usePeerStore.getState().localProfile
@@ -122,6 +123,14 @@ export function App() {
       }
     }
   }, [avatarDataUrl, audioBitrate])
+
+  // Wire window focus tracking for notifications
+  useEffect(() => {
+    const cleanup = window.electronAPI.onFocusChange((focused) => {
+      useUIStore.getState().setWindowFocused(focused)
+    })
+    return cleanup
+  }, [])
 
   // Initialize PersistenceManager, load chats, and load emoji store
   useEffect(() => {

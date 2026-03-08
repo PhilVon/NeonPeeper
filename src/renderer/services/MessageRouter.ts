@@ -15,9 +15,12 @@ import { useEmojiStore } from '../store/emoji-store'
 import { getConnectionManager } from './ConnectionManager'
 import { getMediaManager } from './MediaManager'
 import { getCryptoManager } from './CryptoManager'
+import { getFileTransferManager } from './FileTransferManager'
 import { getSignalingClient } from './SignalingClient'
 import { getPersistenceManager } from './PersistenceManager'
 import { generateDirectChatId } from '../types/chat'
+import { useUIStore } from '../store/ui-store'
+import { useSettingsStore } from '../store/settings-store'
 import { toast } from '../store/toast-store'
 import type { ChatMessage } from '../types/chat'
 
@@ -55,6 +58,12 @@ export class MessageRouter {
     this.registerHandler('CHAT_SYNC', this.handleChatSync.bind(this))
     this.registerHandler('STATUS_UPDATE', this.handleStatusUpdate.bind(this))
     this.registerHandler('PROFILE_UPDATE', this.handleProfileUpdate.bind(this))
+
+    // File transfer handlers
+    this.registerHandler('FILE_OFFER', this.handleFileOffer.bind(this))
+    this.registerHandler('FILE_ACCEPT', this.handleFileAccept.bind(this))
+    this.registerHandler('FILE_CHUNK', this.handleFileChunk.bind(this))
+    this.registerHandler('FILE_COMPLETE', this.handleFileComplete.bind(this))
 
     // Phase 4: Media handlers
     this.registerHandler('MEDIA_OFFER', this.handleMediaOffer.bind(this))
@@ -188,9 +197,16 @@ export class MessageRouter {
       }
     }
 
+    // Derive shared key for E2E encryption
+    if (payload.dhPublicKey) {
+      getCryptoManager().deriveSharedKey(message.from, payload.dhPublicKey).catch(() => {})
+    }
+
     // Send HELLO_ACK
     const localProfile = peerStore.localProfile
     if (!localProfile) return
+
+    const dhPublicKey = getCryptoManager().getDHPublicKeyHex() || undefined
 
     const ackMsg = createMessage('HELLO_ACK', localProfile.id, message.from, {
       displayName: localProfile.displayName,
@@ -199,6 +215,7 @@ export class MessageRouter {
       ackedPeerId: message.from,
       avatarDataUrl: localProfile.avatarDataUrl,
       audioBitrate: localProfile.audioBitrate,
+      dhPublicKey,
     })
 
     getConnectionManager().sendMessage(peerId, ackMsg)
@@ -227,6 +244,11 @@ export class MessageRouter {
       if (changed) {
         toast.warning(`Identity key changed for ${payload.displayName}! Possible impersonation.`)
       }
+    }
+
+    // Derive shared key for E2E encryption
+    if (payload.dhPublicKey) {
+      getCryptoManager().deriveSharedKey(message.from, payload.dhPublicKey).catch(() => {})
     }
 
     useConnectionStore.getState().setConnectionState(peerId, 'connected')
@@ -263,9 +285,26 @@ export class MessageRouter {
 
   // --- Phase 2: Chat handlers ---
 
-  private handleText(message: NeonP2PMessage<'TEXT'>, peerId: string): void {
+  private async handleText(message: NeonP2PMessage<'TEXT'>, peerId: string): Promise<void> {
     const localId = usePeerStore.getState().localProfile?.id
     if (!localId) return
+
+    // Decrypt if encrypted
+    if (message.payload.encrypted) {
+      try {
+        const decrypted = await getCryptoManager().decryptPayload(
+          message.from,
+          message.payload.encrypted.ciphertext,
+          message.payload.encrypted.iv
+        )
+        message = {
+          ...message,
+          payload: { ...message.payload, content: decrypted },
+        }
+      } catch {
+        console.warn('[MessageRouter] Failed to decrypt message from', peerId)
+      }
+    }
 
     const chatId = message.chatId || generateDirectChatId(localId, message.from)
 
@@ -320,10 +359,22 @@ export class MessageRouter {
       contentType: message.payload.contentType,
       meta: message.payload.meta,
       customEmojis,
+      encrypted: !!message.payload.encrypted,
     }
 
     chatStore.addMessage(chatMessage)
     getPersistenceManager().storeMessage(chatMessage).catch(() => {})
+
+    // Native notification when window is unfocused
+    if (
+      useSettingsStore.getState().desktopNotifications &&
+      !useUIStore.getState().windowFocused &&
+      chatStore.activeChatId !== chatId
+    ) {
+      const senderName = usePeerStore.getState().peers.get(message.from)?.displayName ?? 'Unknown'
+      const preview = message.payload.contentType === 'gif' ? 'Sent a GIF' : message.payload.content.slice(0, 100)
+      window.electronAPI.showNotification(senderName, preview)
+    }
 
     // Send delivery ACK
     const ackMsg = createMessage('TEXT_ACK', localId, message.from, {
@@ -456,6 +507,25 @@ export class MessageRouter {
     } else if (direction === 'notify') {
       useMediaStore.getState().setCurrentQuality(quality)
     }
+  }
+
+  // --- File transfer handlers ---
+
+  private handleFileOffer(message: NeonP2PMessage<'FILE_OFFER'>, peerId: string): void {
+    const chatId = message.chatId || ''
+    getFileTransferManager().handleFileOffer(peerId, chatId, message.payload)
+  }
+
+  private handleFileAccept(message: NeonP2PMessage<'FILE_ACCEPT'>, _peerId: string): void {
+    getFileTransferManager().handleFileAccept(message.payload)
+  }
+
+  private handleFileChunk(message: NeonP2PMessage<'FILE_CHUNK'>, _peerId: string): void {
+    getFileTransferManager().handleFileChunk(message.payload)
+  }
+
+  private handleFileComplete(message: NeonP2PMessage<'FILE_COMPLETE'>, _peerId: string): void {
+    getFileTransferManager().handleFileComplete(message.payload)
   }
 
   // --- Phase 6: Group chat handlers ---

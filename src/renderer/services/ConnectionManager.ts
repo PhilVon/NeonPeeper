@@ -23,11 +23,22 @@ interface PeerConnection {
   peerIdRef: { current: string }
 }
 
+interface QueuedMessage {
+  message: NeonP2PMessage
+  timestamp: number
+  attempts: number
+}
+
+const QUEUE_MAX_AGE_MS = 5 * 60 * 1000 // 5 minutes
+const QUEUE_MAX_PER_PEER = 100
+const QUEUE_MAX_RETRIES = 3
+
 export class ConnectionManager {
   private connections = new Map<string, PeerConnection>()
   private eventListeners = new Map<string, Set<EventCallback>>()
   private _destroyed = false
   private userInitiatedCloses = new Set<string>()
+  private messageQueue = new Map<string, QueuedMessage[]>()
 
   get localPeerId(): string {
     return usePeerStore.getState().localProfile?.id ?? ''
@@ -155,6 +166,7 @@ export class ConnectionManager {
       }
       this.sendHello(peerIdRef.current)
       this.startPingPong(peerIdRef.current)
+      this.flushQueue(peerIdRef.current)
     }
     channel.onclose = () => {
       useConnectionStore.getState().setDataChannelState(peerIdRef.current, 'closed')
@@ -371,7 +383,14 @@ export class ConnectionManager {
 
   async sendMessage<T extends MessageType>(peerId: string, message: NeonP2PMessage<T>): Promise<boolean> {
     const conn = this.connections.get(peerId)
-    if (!conn?.controlChannel || conn.controlChannel.readyState !== 'open') return false
+    if (!conn?.controlChannel || conn.controlChannel.readyState !== 'open') {
+      // Queue non-ephemeral messages for later delivery
+      const skipQueue: MessageType[] = ['PING', 'PONG', 'DISCONNECT', 'TYPING_START', 'TYPING_STOP']
+      if (!skipQueue.includes(message.type)) {
+        this.enqueueMessage(peerId, message as NeonP2PMessage)
+      }
+      return false
+    }
 
     // Sign message if enabled (skip PING/PONG for performance)
     if (useSettingsStore.getState().messageSigning && message.type !== 'PING' && message.type !== 'PONG') {
@@ -407,12 +426,15 @@ export class ConnectionManager {
     const profile = usePeerStore.getState().localProfile
     if (!profile) return
 
+    const dhPublicKey = getCryptoManager().getDHPublicKeyHex() || undefined
+
     const msg = createMessage('HELLO', profile.id, peerId, {
       displayName: profile.displayName,
       publicKey: profile.publicKey,
       capabilities: profile.capabilities,
       avatarDataUrl: profile.avatarDataUrl,
       audioBitrate: profile.audioBitrate,
+      dhPublicKey,
     })
     this.sendMessage(peerId, msg)
   }
@@ -509,6 +531,7 @@ export class ConnectionManager {
     conn.ephemeralChannel?.close()
     conn.pc.close()
     this.connections.delete(peerId)
+    this.messageQueue.delete(peerId)
     this.updateState(peerId, 'disconnected')
   }
 
@@ -537,6 +560,54 @@ export class ConnectionManager {
       this.closeConnection(peerId)
     }
     this.eventListeners.clear()
+    this.messageQueue.clear()
+  }
+
+  // --- Message Queue ---
+
+  private enqueueMessage(peerId: string, message: NeonP2PMessage): void {
+    const now = Date.now()
+    let queue = this.messageQueue.get(peerId)
+    if (!queue) {
+      queue = []
+      this.messageQueue.set(peerId, queue)
+    }
+
+    // Prune expired messages
+    queue = queue.filter((q) => now - q.timestamp < QUEUE_MAX_AGE_MS)
+
+    // Cap queue size
+    if (queue.length >= QUEUE_MAX_PER_PEER) {
+      queue.shift()
+    }
+
+    queue.push({ message, timestamp: now, attempts: 0 })
+    this.messageQueue.set(peerId, queue)
+  }
+
+  private async flushQueue(peerId: string): Promise<void> {
+    const queue = this.messageQueue.get(peerId)
+    if (!queue || queue.length === 0) return
+
+    const now = Date.now()
+    const remaining: QueuedMessage[] = []
+
+    for (const item of queue) {
+      if (now - item.timestamp >= QUEUE_MAX_AGE_MS) continue
+      if (item.attempts >= QUEUE_MAX_RETRIES) continue
+
+      item.attempts++
+      const sent = await this.sendMessage(peerId, item.message)
+      if (!sent) {
+        remaining.push(item)
+      }
+    }
+
+    if (remaining.length > 0) {
+      this.messageQueue.set(peerId, remaining)
+    } else {
+      this.messageQueue.delete(peerId)
+    }
   }
 
   // --- Utilities ---

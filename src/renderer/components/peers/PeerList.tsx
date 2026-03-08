@@ -1,4 +1,5 @@
 import { usePeerStore } from '../../store/peer-store'
+import { useArrowNavigation } from '../../hooks/useArrowNavigation'
 import { PeerCard } from './PeerCard'
 import { NeonButton } from '../ui/NeonButton'
 import './PeerList.css'
@@ -12,16 +13,17 @@ interface PeerListProps {
 export function PeerList({ onChat, onConnect, onManualConnect }: PeerListProps) {
   const peers = usePeerStore((s) => s.peers)
   const localId = usePeerStore((s) => s.localProfile?.id)
+  const { containerRef, handleKeyDown } = useArrowNavigation({ selector: '.peer-card' })
 
   const peerList = Array.from(peers.values())
     .filter((p) => p.id !== localId)
     .sort((a, b) => b.lastSeen - a.lastSeen)
 
   return (
-    <div className="peer-list">
+    <div className="peer-list" role="list" aria-label="Peer list">
       <div className="peer-list-header">
         <h2 className="text-cyan">Peers</h2>
-        <NeonButton size="small" onClick={onManualConnect}>
+        <NeonButton size="small" onClick={onManualConnect} aria-label="Add peer manually">
           + Add Peer
         </NeonButton>
       </div>
@@ -31,7 +33,11 @@ export function PeerList({ onChat, onConnect, onManualConnect }: PeerListProps) 
           <p className="text-muted">Connect to a signaling server or add a peer manually.</p>
         </div>
       ) : (
-        <div className="peer-list-grid">
+        <div
+          className="peer-list-grid"
+          ref={containerRef as React.RefObject<HTMLDivElement>}
+          onKeyDown={handleKeyDown}
+        >
           {peerList.map((peer) => (
             <PeerCard
               key={peer.id}

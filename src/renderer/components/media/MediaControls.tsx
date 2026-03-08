@@ -22,12 +22,14 @@ export function MediaControls({
   const screenStream = useMediaStore((s) => s.localScreenStream)
 
   return (
-    <div className="media-controls">
+    <div className="media-controls" role="toolbar" aria-label="Media controls">
       <NeonButton
         variant={audioMuted ? 'danger' : 'secondary'}
         size="medium"
         onClick={onToggleAudio}
         title={audioMuted ? 'Unmute' : 'Mute'}
+        aria-label={audioMuted ? 'Unmute microphone' : 'Mute microphone'}
+        aria-pressed={!audioMuted}
       >
         {audioMuted ? 'Unmute' : 'Mute'}
       </NeonButton>
@@ -37,6 +39,8 @@ export function MediaControls({
         size="medium"
         onClick={onToggleVideo}
         title={videoEnabled ? 'Turn off camera' : 'Turn on camera'}
+        aria-label={videoEnabled ? 'Turn off camera' : 'Turn on camera'}
+        aria-pressed={videoEnabled}
       >
         {videoEnabled ? 'Cam On' : 'Cam Off'}
       </NeonButton>
@@ -47,6 +51,8 @@ export function MediaControls({
         onClick={onToggleScreenShare}
         disabled={!onToggleScreenShare}
         title="Share screen"
+        aria-label={screenStream ? 'Stop screen sharing' : 'Share screen'}
+        aria-pressed={!!screenStream}
       >
         {screenStream ? 'Stop Share' : 'Share'}
       </NeonButton>

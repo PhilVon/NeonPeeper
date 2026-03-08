@@ -9,6 +9,7 @@ import './ChatInput.css'
 interface ChatInputProps {
   onSend: (content: string, contentType?: 'text' | 'gif', meta?: GifMeta) => void
   onTyping?: () => void
+  onAttachFile?: (file: File) => void
   replyTo?: { id: string; content: string } | null
   onCancelReply?: () => void
   editingMessage?: { id: string; content: string } | null
@@ -20,6 +21,7 @@ interface ChatInputProps {
 export function ChatInput({
   onSend,
   onTyping,
+  onAttachFile,
   replyTo,
   onCancelReply,
   editingMessage,
@@ -27,6 +29,7 @@ export function ChatInput({
   onConfirmEdit,
   disabled = false,
 }: ChatInputProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [value, setValue] = useState('')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showGifPanel, setShowGifPanel] = useState(false)
@@ -177,6 +180,28 @@ export function ChatInput({
         </div>
       )}
       <div className="chat-input-bar">
+        {onAttachFile && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) onAttachFile(file)
+                e.target.value = ''
+              }}
+            />
+            <button
+              className="chat-input-icon-btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled}
+              title="Attach file"
+            >
+              +
+            </button>
+          </>
+        )}
         <button
           className={['chat-input-icon-btn', showEmojiPicker && 'chat-input-icon-btn-active'].filter(Boolean).join(' ')}
           onClick={handleToggleEmoji}
@@ -210,6 +235,7 @@ export function ChatInput({
           placeholder="Type a message..."
           disabled={disabled}
           rows={1}
+          aria-label="Message input"
         />
         <NeonButton
           size="small"
