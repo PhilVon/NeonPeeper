@@ -1,6 +1,19 @@
 import { WebSocketServer, WebSocket } from 'ws'
 
-const PORT = parseInt(process.env.PORT || '8080', 10)
+const args = process.argv.slice(2)
+let portArg: string | undefined
+
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--port' || args[i] === '-p') {
+    portArg = args[i + 1]
+    break
+  } else if (args[i].startsWith('--port=')) {
+    portArg = args[i].split('=')[1]
+    break
+  }
+}
+
+const PORT = parseInt(portArg || process.env.PORT || '8080', 10)
 
 interface PeerInfo {
   ws: WebSocket
