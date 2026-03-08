@@ -71,6 +71,7 @@ export function App() {
       const profile = {
         id,
         displayName: useSettingsStore.getState().displayName,
+        avatarDataUrl: useSettingsStore.getState().avatarDataUrl || undefined,
         publicKey: '',
         capabilities: ['text', 'media', 'screen-share'],
       }
@@ -80,7 +81,10 @@ export function App() {
       getCryptoManager().generateKeyPair()
         .then(() => getCryptoManager().getPublicKeyHex())
         .then((publicKey) => {
-          usePeerStore.getState().setLocalProfile({ ...profile, publicKey })
+          const current = usePeerStore.getState().localProfile
+          if (current) {
+            usePeerStore.getState().setLocalProfile({ ...current, publicKey })
+          }
         })
         .catch((err) => console.error('Failed to generate keypair:', err))
     }
