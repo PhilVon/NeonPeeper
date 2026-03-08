@@ -198,24 +198,23 @@ export class MessageRouter {
     const crypto = getCryptoManager()
     const cm = getConnectionManager()
 
-    // Store peer with empty profile (withheld until verification)
-    const existing = peerStore.peers.get(message.from)
+    // Store peer profile
     peerStore.upsertPeer({
       id: message.from,
-      displayName: existing?.displayName || '',
+      displayName: payload.displayName,
       publicKey: payload.publicKey,
-      capabilities: existing?.capabilities || [],
-      firstSeen: existing?.firstSeen || now,
+      capabilities: payload.capabilities,
+      firstSeen: now,
       lastSeen: now,
-      avatarDataUrl: existing?.avatarDataUrl,
-      audioBitrate: existing?.audioBitrate,
+      avatarDataUrl: payload.avatarDataUrl,
+      audioBitrate: payload.audioBitrate,
     })
 
     // TOFU key pinning
     if (payload.publicKey) {
       const { changed } = crypto.trustPeer(message.from, payload.publicKey)
       if (changed) {
-        toast.warning(`Identity key changed for peer ${message.from.slice(0, 8)}! Possible impersonation.`)
+        toast.warning(`Identity key changed for ${payload.displayName}! Possible impersonation.`)
       }
     }
 
@@ -224,17 +223,19 @@ export class MessageRouter {
       crypto.deriveSharedKey(message.from, payload.dhPublicKey).catch(() => {})
     }
 
-    // Send HELLO_ACK (no profile info)
+    // Send HELLO_ACK
     const localProfile = peerStore.localProfile
     if (!localProfile) return
 
     const dhPublicKey = crypto.getDHPublicKeyHex() || undefined
 
     const ackMsg = createMessage('HELLO_ACK', localProfile.id, message.from, {
-      displayName: '',
+      displayName: localProfile.displayName,
       publicKey: localProfile.publicKey,
-      capabilities: [],
+      capabilities: localProfile.capabilities,
       ackedPeerId: message.from,
+      avatarDataUrl: localProfile.avatarDataUrl,
+      audioBitrate: localProfile.audioBitrate,
       dhPublicKey,
     })
 
@@ -259,23 +260,22 @@ export class MessageRouter {
     const crypto = getCryptoManager()
     const cm = getConnectionManager()
 
-    const existing = usePeerStore.getState().peers.get(message.from)
     usePeerStore.getState().upsertPeer({
       id: message.from,
-      displayName: existing?.displayName || '',
+      displayName: payload.displayName,
       publicKey: payload.publicKey,
-      capabilities: existing?.capabilities || [],
-      firstSeen: existing?.firstSeen || now,
+      capabilities: payload.capabilities,
+      firstSeen: now,
       lastSeen: now,
-      avatarDataUrl: existing?.avatarDataUrl,
-      audioBitrate: existing?.audioBitrate,
+      avatarDataUrl: payload.avatarDataUrl,
+      audioBitrate: payload.audioBitrate,
     })
 
     // TOFU key pinning
     if (payload.publicKey) {
       const { changed } = crypto.trustPeer(message.from, payload.publicKey)
       if (changed) {
-        toast.warning(`Identity key changed for peer ${message.from.slice(0, 8)}! Possible impersonation.`)
+        toast.warning(`Identity key changed for ${payload.displayName}! Possible impersonation.`)
       }
     }
 

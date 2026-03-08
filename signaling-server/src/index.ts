@@ -21,6 +21,7 @@ const PORT = parseInt(portArg || process.env.PORT || '8080', 10)
 interface PeerInfo {
   ws: WebSocket
   peerId: string
+  displayName: string
   rooms: Set<string>
   lastPong: number
 }
@@ -126,7 +127,7 @@ function removePeer(peerId: string): void {
     send(remainingPeer.ws, { type: 'peer-left', peerId })
   }
 
-  console.log(`[Signaling] Peer disconnected: ${peerId}`)
+  console.log(`[Signaling] Peer disconnected: ${peerId} (${peer.displayName})`)
 }
 
 // --- SFU message handler ---
@@ -314,6 +315,7 @@ wss.on('connection', (ws) => {
     switch (type) {
       case 'register': {
         const peerId = msg.peerId as string
+        const displayName = (msg.displayName as string) || 'Anonymous'
 
         if (!peerId) {
           send(ws, { type: 'error', code: 1002, message: 'Missing peerId' })
@@ -329,23 +331,25 @@ wss.on('connection', (ws) => {
         peers.set(peerId, {
           ws,
           peerId,
+          displayName,
           rooms: new Set(),
           lastPong: Date.now(),
         })
 
         send(ws, { type: 'registered', peerId })
 
-        // Notify all existing peers about the new peer (no displayName)
+        // Notify all existing peers about the new peer
         for (const [existingId, existingPeer] of peers) {
           if (existingId !== peerId) {
             send(existingPeer.ws, {
               type: 'peer-joined',
               peerId,
+              displayName,
             })
           }
         }
 
-        console.log(`[Signaling] Peer registered: ${peerId}`)
+        console.log(`[Signaling] Peer registered: ${peerId} (${displayName})`)
         break
       }
 
@@ -357,17 +361,20 @@ wss.on('connection', (ws) => {
         }
 
         const roomId = msg.roomId as string | undefined
-        let peerList: Array<{ peerId: string }>
+        let peerList: Array<{ peerId: string; displayName: string }>
 
         if (roomId && rooms.has(roomId)) {
           const room = rooms.get(roomId)!
           peerList = Array.from(room)
             .filter((id) => id !== peer.peerId)
-            .map((id) => ({ peerId: id }))
+            .map((id) => {
+              const p = peers.get(id)
+              return { peerId: id, displayName: p?.displayName || 'Unknown' }
+            })
         } else {
           peerList = Array.from(peers.values())
             .filter((p) => p.peerId !== peer.peerId)
-            .map((p) => ({ peerId: p.peerId }))
+            .map((p) => ({ peerId: p.peerId, displayName: p.displayName }))
         }
 
         send(ws, { type: 'peer-list', peers: peerList })
@@ -442,6 +449,7 @@ wss.on('connection', (ws) => {
               type: 'peer-joined',
               roomId,
               peerId: peer.peerId,
+              displayName: peer.displayName,
             })
           }
         }

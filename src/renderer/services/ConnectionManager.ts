@@ -434,11 +434,12 @@ export class ConnectionManager {
 
     const dhPublicKey = getCryptoManager().getDHPublicKeyHex() || undefined
 
-    // Send only crypto keys — profile info withheld until mutual verification
     const msg = createMessage('HELLO', profile.id, peerId, {
-      displayName: '',
+      displayName: profile.displayName,
       publicKey: profile.publicKey,
-      capabilities: [],
+      capabilities: profile.capabilities,
+      avatarDataUrl: profile.avatarDataUrl,
+      audioBitrate: profile.audioBitrate,
       dhPublicKey,
     })
     this.sendMessage(peerId, msg)

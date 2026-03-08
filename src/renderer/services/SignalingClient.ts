@@ -9,6 +9,7 @@ type EventCallback = (...args: unknown[]) => void
 
 interface DiscoveredPeer {
   peerId: string
+  displayName: string
 }
 
 export class SignalingClient {
@@ -62,12 +63,13 @@ export class SignalingClient {
       this.setState('connected')
       this.reconnectAttempts = 0
 
-      // Register (no displayName — revealed only after verification)
+      // Register
       const profile = usePeerStore.getState().localProfile
       if (profile) {
         this.send({
           type: 'register',
           peerId: profile.id,
+          displayName: profile.displayName,
         })
       }
 
@@ -162,13 +164,13 @@ export class SignalingClient {
         this.discoveredPeers = (msg.peers as DiscoveredPeer[]) || []
         this.emit('peer-list', this.discoveredPeers)
 
-        // Update peer store with discovered peers (no displayName until verified)
+        // Update peer store with discovered peers
         for (const peer of this.discoveredPeers) {
           const existing = usePeerStore.getState().peers.get(peer.peerId)
           if (!existing) {
             usePeerStore.getState().upsertPeer({
               id: peer.peerId,
-              displayName: '',
+              displayName: peer.displayName,
               publicKey: '',
               capabilities: [],
               firstSeen: Date.now(),
@@ -207,22 +209,20 @@ export class SignalingClient {
 
       case 'peer-joined': {
         const peerId = msg.peerId as string
+        const displayName = (msg.displayName as string) || ''
         if (msg.roomId) {
           // Room-scoped event — don't update global peer store
-          this.emit('room-peer-joined', msg.roomId, peerId)
+          this.emit('room-peer-joined', msg.roomId, peerId, displayName)
         } else {
-          const existing = usePeerStore.getState().peers.get(peerId)
-          if (!existing) {
-            usePeerStore.getState().upsertPeer({
-              id: peerId,
-              displayName: '',
-              publicKey: '',
-              capabilities: [],
-              firstSeen: Date.now(),
-              lastSeen: Date.now(),
-            })
-          }
-          this.emit('peer-joined', peerId)
+          usePeerStore.getState().upsertPeer({
+            id: peerId,
+            displayName,
+            publicKey: '',
+            capabilities: [],
+            firstSeen: Date.now(),
+            lastSeen: Date.now(),
+          })
+          this.emit('peer-joined', peerId, displayName)
         }
         break
       }

@@ -40,8 +40,7 @@ A peer-to-peer chat and video calling desktop application with a cyberpunk/neon 
 - **Ed25519 Signing** — Automatic keypair generation with message signing and verification
 - **TOFU Key Pinning** — Trust-on-first-use identity verification with change alerts
 - **Short Verification Codes** — Verify peer identity out-of-band with an 8-digit `XXXX-XXXX` code; mutual verification required before chat access
-- **Trust-Gated Chat** — Chat, file transfer, and presence features are blocked until both peers complete mutual verification; profile info (display name, avatar) is withheld until verified
-- **Privacy-Preserving Discovery** — Signaling server broadcasts only peer IDs, never display names or profile data
+- **Trust-Gated Chat** — Chat, file transfer, and presence features are blocked until both peers complete mutual verification
 - **Auto-Restore Verification** — Reconnecting peers with the same public key automatically restore verified status without re-verification
 - **End-to-End Encryption** — Optional E2E encryption using ECDH P-256 key exchange and AES-256-GCM, with a per-message lock icon indicator
 - **Ephemeral Messages** — Auto-delete sent messages after a configurable TTL (30s to 7d); both sender and receiver delete independently
