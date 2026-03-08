@@ -45,6 +45,7 @@ export interface HelloPayload {
   publicKey: string
   capabilities: string[]
   avatarDataUrl?: string
+  audioBitrate?: number
 }
 
 export interface HelloAckPayload {
@@ -53,6 +54,7 @@ export interface HelloAckPayload {
   capabilities: string[]
   ackedPeerId: string
   avatarDataUrl?: string
+  audioBitrate?: number
 }
 
 export interface PingPayload {
@@ -113,6 +115,7 @@ export interface StatusUpdatePayload {
 export interface ProfileUpdatePayload {
   displayName?: string
   avatarDataUrl?: string
+  audioBitrate?: number
 }
 
 // Chat session payloads

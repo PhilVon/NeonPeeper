@@ -7,6 +7,7 @@ export interface PeerProfile {
   lastSeen: number
   status?: 'online' | 'busy' | 'idle'
   avatarDataUrl?: string
+  audioBitrate?: number
 }
 
 export interface LocalProfile {
@@ -16,6 +17,7 @@ export interface LocalProfile {
   privateKey?: CryptoKey
   capabilities: string[]
   avatarDataUrl?: string
+  audioBitrate?: number
 }
 
 export type ConnectionState =

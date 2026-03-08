@@ -177,6 +177,7 @@ export class MessageRouter {
       firstSeen: now,
       lastSeen: now,
       avatarDataUrl: payload.avatarDataUrl,
+      audioBitrate: payload.audioBitrate,
     })
 
     // TOFU key pinning
@@ -197,6 +198,7 @@ export class MessageRouter {
       capabilities: localProfile.capabilities,
       ackedPeerId: message.from,
       avatarDataUrl: localProfile.avatarDataUrl,
+      audioBitrate: localProfile.audioBitrate,
     })
 
     getConnectionManager().sendMessage(peerId, ackMsg)
@@ -216,6 +218,7 @@ export class MessageRouter {
       firstSeen: now,
       lastSeen: now,
       avatarDataUrl: payload.avatarDataUrl,
+      audioBitrate: payload.audioBitrate,
     })
 
     // TOFU key pinning
@@ -627,6 +630,7 @@ export class MessageRouter {
         ...peer,
         displayName: message.payload.displayName ?? peer.displayName,
         avatarDataUrl: message.payload.avatarDataUrl,
+        audioBitrate: message.payload.audioBitrate ?? peer.audioBitrate,
         lastSeen: Date.now(),
       })
     }
