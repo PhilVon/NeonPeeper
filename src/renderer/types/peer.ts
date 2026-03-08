@@ -28,6 +28,7 @@ export type ConnectionState =
   | 'dtls-handshake'
   | 'handshake'
   | 'connected'
+  | 'verified'
   | 'reconnecting'
   | 'failed'
 

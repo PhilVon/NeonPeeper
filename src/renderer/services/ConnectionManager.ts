@@ -112,7 +112,11 @@ export class ConnectionManager {
     pc.oniceconnectionstatechange = () => {
       useConnectionStore.getState().setIceState(peerIdRef.current, pc.iceConnectionState)
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-        this.updateState(peerIdRef.current, 'connected')
+        // Don't downgrade from 'verified' to 'connected' on ICE reconnects
+        const currentState = useConnectionStore.getState().getConnection(peerIdRef.current)?.connectionState
+        if (currentState !== 'verified') {
+          this.updateState(peerIdRef.current, 'connected')
+        }
       } else if (pc.iceConnectionState === 'failed') {
         this.updateState(peerIdRef.current, 'failed')
         this.emit('peer-disconnected', peerIdRef.current)
@@ -161,9 +165,9 @@ export class ConnectionManager {
   private setupControlChannel(peerIdRef: { current: string }, channel: RTCDataChannel): void {
     channel.onopen = () => {
       useConnectionStore.getState().setDataChannelState(peerIdRef.current, 'open')
-      // Only set 'handshake' if not already 'connected' — avoid downgrading state
+      // Only set 'handshake' if not already 'connected'/'verified' — avoid downgrading state
       const currentState = useConnectionStore.getState().getConnection(peerIdRef.current)?.connectionState
-      if (currentState !== 'connected') {
+      if (currentState !== 'connected' && currentState !== 'verified') {
         this.updateState(peerIdRef.current, 'handshake')
       }
       this.sendHello(peerIdRef.current)
@@ -430,13 +434,26 @@ export class ConnectionManager {
 
     const dhPublicKey = getCryptoManager().getDHPublicKeyHex() || undefined
 
+    // Send only crypto keys — profile info withheld until mutual verification
     const msg = createMessage('HELLO', profile.id, peerId, {
-      displayName: profile.displayName,
+      displayName: '',
       publicKey: profile.publicKey,
+      capabilities: [],
+      dhPublicKey,
+    })
+    this.sendMessage(peerId, msg)
+  }
+
+  // Send full profile to a verified peer
+  sendProfileReveal(peerId: string): void {
+    const profile = usePeerStore.getState().localProfile
+    if (!profile) return
+
+    const msg = createMessage('PROFILE_REVEAL', profile.id, peerId, {
+      displayName: profile.displayName,
       capabilities: profile.capabilities,
       avatarDataUrl: profile.avatarDataUrl,
       audioBitrate: profile.audioBitrate,
-      dhPublicKey,
     })
     this.sendMessage(peerId, msg)
   }

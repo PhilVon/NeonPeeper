@@ -390,6 +390,13 @@ export function App() {
     const localId = usePeerStore.getState().localProfile?.id
     if (!localId) return
 
+    // Gate chat behind mutual verification
+    const connState = useConnectionStore.getState().getConnection(peerId)?.connectionState
+    if (connState !== 'verified') {
+      toast.warning('You must verify this peer before chatting')
+      return
+    }
+
     const chatId = generateDirectChatId(localId, peerId)
     const peer = usePeerStore.getState().peers.get(peerId)
 

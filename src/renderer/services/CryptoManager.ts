@@ -24,6 +24,7 @@ export interface TrustedPeer {
   publicKey: string
   firstSeen: number
   verified: boolean
+  remoteVerified: boolean
 }
 
 export class CryptoManager {
@@ -254,6 +255,7 @@ export class CryptoManager {
         publicKey,
         firstSeen: Date.now(),
         verified: false,
+        remoteVerified: false,
       })
       return { trusted: true, changed: false }
     }
@@ -273,12 +275,25 @@ export class CryptoManager {
     }
   }
 
+  markRemoteVerified(peerId: string): void {
+    const peer = this.trustedPeers.get(peerId)
+    if (peer) {
+      peer.remoteVerified = true
+    }
+  }
+
   isTrusted(peerId: string): boolean {
     return this.trustedPeers.has(peerId)
   }
 
   isVerified(peerId: string): boolean {
     return this.trustedPeers.get(peerId)?.verified ?? false
+  }
+
+  isMutuallyVerified(peerId: string): boolean {
+    const peer = this.trustedPeers.get(peerId)
+    if (!peer) return false
+    return peer.verified && peer.remoteVerified
   }
 
   // --- Safety Numbers ---
@@ -306,13 +321,10 @@ export class CryptoManager {
     const hash = await crypto.subtle.digest('SHA-256', combined as BufferSource)
     const hashArr = new Uint8Array(hash)
 
-    // Format as 12 groups of 5 digits
-    const groups: string[] = []
-    for (let i = 0; i < 12 && i * 2 + 1 < hashArr.length; i++) {
-      const num = (hashArr[i * 2] << 8 | hashArr[i * 2 + 1]) % 100000
-      groups.push(num.toString().padStart(5, '0'))
-    }
-    return groups.join(' ')
+    // Format as XXXX-XXXX (8 digits, ~26 bits of entropy)
+    const group1 = ((hashArr[0] << 8) | hashArr[1]) % 10000
+    const group2 = ((hashArr[2] << 8) | hashArr[3]) % 10000
+    return `${group1.toString().padStart(4, '0')}-${group2.toString().padStart(4, '0')}`
   }
 
   // --- Key Storage ---

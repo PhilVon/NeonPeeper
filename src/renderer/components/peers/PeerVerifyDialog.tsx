@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
 import { NeonButton } from '../ui/NeonButton'
 import { getCryptoManager } from '../../services/CryptoManager'
+import { getConnectionManager } from '../../services/ConnectionManager'
+import { useConnectionStore } from '../../store/connection-store'
 import { usePeerStore } from '../../store/peer-store'
+import { createMessage } from '../../types/protocol'
 import './PeerVerifyDialog.css'
 
 interface PeerVerifyDialogProps {
@@ -11,28 +14,48 @@ interface PeerVerifyDialogProps {
 }
 
 export function PeerVerifyDialog({ peerId, isOpen, onClose }: PeerVerifyDialogProps) {
-  const [safetyNumber, setSafetyNumber] = useState<string | null>(null)
-  const [verified, setVerified] = useState(false)
+  const [verificationCode, setVerificationCode] = useState<string | null>(null)
+  const [locallyVerified, setLocallyVerified] = useState(false)
   const peer = usePeerStore((s) => s.peers.get(peerId))
+  const connState = useConnectionStore((s) => s.connections.get(peerId)?.connectionState)
+  const isMutual = connState === 'verified'
 
   useEffect(() => {
     if (!isOpen || !peer?.publicKey) return
-    setSafetyNumber(null)
-    setVerified(getCryptoManager().isVerified(peerId))
+    setVerificationCode(null)
+    setLocallyVerified(getCryptoManager().isVerified(peerId))
 
     getCryptoManager()
       .generateSafetyNumber(peer.publicKey)
-      .then(setSafetyNumber)
-      .catch(() => setSafetyNumber('Error generating safety number'))
+      .then(setVerificationCode)
+      .catch(() => setVerificationCode('Error generating code'))
   }, [isOpen, peerId, peer?.publicKey])
 
   if (!isOpen) return null
 
-  const groups = safetyNumber ? safetyNumber.split(' ') : []
+  // Split XXXX-XXXX into two groups
+  const groups = verificationCode ? verificationCode.split('-') : []
 
   const handleVerify = () => {
-    getCryptoManager().markPeerVerified(peerId)
-    setVerified(true)
+    const crypto = getCryptoManager()
+    const cm = getConnectionManager()
+
+    // Mark locally verified
+    crypto.markPeerVerified(peerId)
+    setLocallyVerified(true)
+
+    // Send VERIFY_CONFIRM to remote peer
+    const localProfile = usePeerStore.getState().localProfile
+    if (localProfile) {
+      const msg = createMessage('VERIFY_CONFIRM', localProfile.id, peerId, { verified: true })
+      cm.sendMessage(peerId, msg)
+
+      // If now mutually verified, send PROFILE_REVEAL and set verified state
+      if (crypto.isMutuallyVerified(peerId)) {
+        useConnectionStore.getState().setConnectionState(peerId, 'verified')
+        cm.sendProfileReveal(peerId)
+      }
+    }
   }
 
   return (
@@ -40,10 +63,10 @@ export function PeerVerifyDialog({ peerId, isOpen, onClose }: PeerVerifyDialogPr
       <div className="peer-verify-dialog" onClick={(e) => e.stopPropagation()}>
         <h3 className="peer-verify-title">Verify Identity</h3>
         <p className="peer-verify-subtitle">
-          Compare these numbers with {peer?.displayName ?? 'peer'} using a trusted channel (in person, phone call, etc.)
+          Compare this code with the peer using a trusted channel (in person, phone call, etc.)
         </p>
-        {safetyNumber === null ? (
-          <div className="peer-verify-loading">Generating safety numbers...</div>
+        {verificationCode === null ? (
+          <div className="peer-verify-loading">Generating verification code...</div>
         ) : (
           <div className="peer-verify-numbers">
             {groups.map((group, i) => (
@@ -51,18 +74,21 @@ export function PeerVerifyDialog({ peerId, isOpen, onClose }: PeerVerifyDialogPr
             ))}
           </div>
         )}
+        {locallyVerified && !isMutual && (
+          <div className="peer-verify-status">Awaiting remote verification...</div>
+        )}
         <div className="peer-verify-actions">
           <NeonButton size="small" variant="secondary" onClick={onClose}>
             Close
           </NeonButton>
-          {!verified && safetyNumber && (
+          {!locallyVerified && verificationCode && (
             <NeonButton size="small" onClick={handleVerify}>
               Mark as Verified
             </NeonButton>
           )}
-          {verified && (
+          {locallyVerified && (
             <NeonButton size="small" variant="secondary" disabled>
-              Verified
+              {isMutual ? 'Mutually Verified' : 'Verified (local)'}
             </NeonButton>
           )}
         </div>

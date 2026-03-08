@@ -17,6 +17,7 @@ const STAGES: { state: ConnectionState; label: string }[] = [
   { state: 'dtls-handshake', label: 'DTLS Handshake' },
   { state: 'handshake', label: 'Protocol Handshake' },
   { state: 'connected', label: 'Connected' },
+  { state: 'verified', label: 'Verified' },
 ]
 
 function getStageIndex(state: ConnectionState): number {
@@ -38,7 +39,7 @@ export function ConnectionDialog({ isOpen, onClose, peerId }: ConnectionDialogPr
   const currentState = connection?.connectionState ?? 'disconnected'
   const currentIdx = getStageIndex(currentState)
   const isFailed = currentState === 'failed'
-  const isConnected = currentState === 'connected'
+  const isConnected = currentState === 'connected' || currentState === 'verified'
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Connecting..." size="small">

@@ -35,20 +35,29 @@
 
 .peer-verify-numbers {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--spacing-xs);
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-sm);
   margin-bottom: var(--spacing-lg);
   background: var(--bg-darkest);
   border-radius: var(--radius-md);
-  padding: var(--spacing-md);
+  padding: var(--spacing-lg);
   font-family: var(--font-mono);
 }
 
 .peer-verify-group {
   text-align: center;
-  font-size: var(--font-size-md);
+  font-size: 2rem;
   color: var(--neon-green);
-  padding: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  letter-spacing: 0.15em;
+}
+
+.peer-verify-status {
+  text-align: center;
+  color: var(--neon-cyan);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--spacing-md);
+  animation: pulse 2s ease-in-out infinite;
 }
 
 .peer-verify-loading {
