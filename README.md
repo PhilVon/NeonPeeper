@@ -31,6 +31,7 @@ A peer-to-peer chat and video calling desktop application with a cyberpunk/neon 
 
 ### Networking
 - **Peer Discovery** — Optional WebSocket signaling server for finding peers, or manual SDP exchange for fully serverless connections
+- **SFU Mode** — Automatic mesh-to-SFU topology switch at 7+ peers via mediasoup, with simulcast (3 quality layers), active speaker detection, and off-screen consumer pause; graceful fallback to mesh if SFU is unavailable
 - **Auto-Reconnection** — Exponential backoff reconnection (up to 5 attempts) when peers disconnect unexpectedly
 - **Configurable ICE** — Custom STUN/TURN server configuration with credential support
 - **Signaling Room Bridge** — Signaling rooms linked to chat sessions for group discovery and crash recovery
@@ -95,6 +96,7 @@ npm run preview   # Preview the production build
 - **React 18** — UI framework
 - **TypeScript** — Type safety throughout
 - **WebRTC** — Peer-to-peer audio, video, and data channels
+- **mediasoup / mediasoup-client** — SFU media routing for 7+ peer video with simulcast and active speaker detection
 - **Zustand** — State management (8 stores with localStorage and IndexedDB persistence)
 - **IndexedDB** — Local message and chat persistence via `idb`
 - **Web Crypto API** — Ed25519 signing, ECDH key exchange, AES-256-GCM encryption, TOFU key pinning, PBKDF2 encrypted key storage
@@ -170,7 +172,7 @@ Messages are signed with Ed25519 when signing is enabled. Text messages support 
 - [x] Off-screen video pause
 - [x] Safety number verification UI
 - [x] Accessibility (ARIA, keyboard navigation)
-- [ ] SFU support for large group calls (client scaffolding in place, requires mediasoup server)
+- [x] SFU support for large group calls (mediasoup, auto topology switch at 7+ peers)
 - [ ] Packaged desktop builds (Windows, macOS, Linux)
 
 ## License
