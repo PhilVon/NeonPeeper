@@ -63,7 +63,7 @@ export function PeerVerifyDialog({ peerId, isOpen, onClose }: PeerVerifyDialogPr
       <div className="peer-verify-dialog" onClick={(e) => e.stopPropagation()}>
         <h3 className="peer-verify-title">Verify Identity</h3>
         <p className="peer-verify-subtitle">
-          Compare this code with the peer using a trusted channel (in person, phone call, etc.)
+          Compare this code with {peer?.displayName || 'the peer'} using a trusted channel (in person, phone call, etc.)
         </p>
         {verificationCode === null ? (
           <div className="peer-verify-loading">Generating verification code...</div>

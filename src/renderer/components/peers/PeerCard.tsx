@@ -35,17 +35,12 @@ export function PeerCard({ peer, onChat, onConnect }: PeerCardProps) {
     ? 'busy'
     : 'offline'
 
-  // Display name: show real name only when verified, otherwise "Unverified Peer"
-  const displayLabel = isVerifiedState && peer.displayName
-    ? peer.displayName
-    : isConnected
-    ? 'Unverified Peer'
-    : peer.displayName || peer.id.slice(0, 12) + '...'
+  const displayLabel = peer.displayName || peer.id.slice(0, 12) + '...'
 
   return (
     <div className="peer-card" role="article" aria-label={`${displayLabel}, ${status}`} tabIndex={0}>
       <div className="peer-card-header">
-        <Avatar name={displayLabel} src={isVerifiedState ? peer.avatarDataUrl : undefined} size="medium" status={status} />
+        <Avatar name={displayLabel} src={peer.avatarDataUrl} size="medium" status={status} />
         <div className="peer-card-info">
           <span className="peer-card-name">
             {displayLabel}
