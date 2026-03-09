@@ -24,6 +24,7 @@ export function ChatList({ onNewChat }: ChatListProps) {
   )
 
   const getChatDisplayName = (chat: Chat): string => {
+    if (chat.type === 'community' && chat.name) return chat.name
     if (chat.name) return chat.name
     if (chat.type === 'direct') {
       const localId = usePeerStore.getState().localProfile?.id
@@ -55,6 +56,7 @@ export function ChatList({ onNewChat }: ChatListProps) {
   }
 
   const getPeerStatus = (chat: Chat): 'online' | 'offline' | 'busy' | 'idle' => {
+    if (chat.type === 'community') return 'online'
     if (chat.type === 'group') return 'online'
     const localId = usePeerStore.getState().localProfile?.id
     const otherMember = chat.members.find((m) => m !== localId)

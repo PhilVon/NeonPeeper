@@ -35,7 +35,9 @@ import { getMediaManager } from './services/MediaManager'
 import { getCryptoManager } from './services/CryptoManager'
 import { getPerformanceMonitor } from './services/PerformanceMonitor'
 import { getEphemeralMessageManager } from './services/EphemeralMessageManager'
+import { getCommunityClient } from './services/CommunityClient'
 import { getSFUClient, type Topology } from './services/SFUClient'
+import { ChannelBrowser } from './components/community/ChannelBrowser'
 import { generateDirectChatId } from './types/chat'
 import { createMessage } from './types/protocol'
 import { DEFAULT_RECONNECTION_CONFIG } from './types/peer'
@@ -56,6 +58,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('peers')
   const [showPeerInvite, setShowPeerInvite] = useState(false)
   const [showCreateGroup, setShowCreateGroup] = useState(false)
+  const [browsingServerId, setBrowsingServerId] = useState<string | null>(null)
   const localProfile = usePeerStore((s) => s.localProfile)
   const chats = useChatStore((s) => s.chats)
   const activeChatId = useChatStore((s) => s.activeChatId)
@@ -233,6 +236,52 @@ export function App() {
       }
     }
   }, [autoConnect, signalingUrl, localProfile])
+
+  // Auto-connect to community servers on discovery
+  useEffect(() => {
+    const client = getSignalingClient()
+
+    const handlePeerList = () => {
+      const allPeers = usePeerStore.getState().peers
+      for (const [, peer] of allPeers) {
+        if (peer.peerType === 'community-server' && peer.wsUrl) {
+          const cc = getCommunityClient()
+          if (!cc.isConnected(peer.id)) {
+            cc.connect(peer.id, peer.wsUrl)
+          }
+        }
+      }
+    }
+
+    const handlePeerJoined = (peerId: unknown) => {
+      const peer = usePeerStore.getState().peers.get(peerId as string)
+      if (peer?.peerType === 'community-server' && peer.wsUrl) {
+        getCommunityClient().connect(peer.id, peer.wsUrl)
+      }
+    }
+
+    client.on('peer-list', handlePeerList)
+    client.on('peer-joined', handlePeerJoined)
+
+    return () => {
+      client.off('peer-list', handlePeerList)
+      client.off('peer-joined', handlePeerJoined)
+    }
+  }, [])
+
+  // Clean up community connections on signaling disconnect
+  useEffect(() => {
+    const client = getSignalingClient()
+
+    const handleStateChange = (state: unknown) => {
+      if (state === 'disconnected') {
+        getCommunityClient().disconnectAll()
+      }
+    }
+
+    client.on('state-change', handleStateChange)
+    return () => client.off('state-change', handleStateChange)
+  }, [])
 
   // Signaling room event wiring — rejoin rooms on reconnect, crash detection
   useEffect(() => {
@@ -483,6 +532,7 @@ export function App() {
             onChat={handleStartChat}
             onConnect={handleConnectPeer}
             onManualConnect={() => setShowPeerInvite(true)}
+            onBrowseChannels={(serverId) => setBrowsingServerId(serverId)}
           />
         )
       case 'demo':
@@ -522,6 +572,18 @@ export function App() {
           setActiveTab('chats')
         }}
       />
+      {browsingServerId && (
+        <ChannelBrowser
+          isOpen={true}
+          onClose={() => setBrowsingServerId(null)}
+          serverId={browsingServerId}
+          onChannelJoined={(_serverId, _channelId) => {
+            const chatId = `community:${_serverId}:${_channelId}`
+            useChatStore.getState().setActiveChat(chatId)
+            setActiveTab('chats')
+          }}
+        />
+      )}
     </div>
   )
 }

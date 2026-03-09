@@ -1,0 +1,39 @@
+.channel-member-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.channel-member-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+}
+
+.channel-member-item:hover {
+  background: var(--bg-dark);
+}
+
+.channel-member-name {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.channel-member-role {
+  font-size: var(--font-size-xs);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 0, 255, 0.15);
+  color: var(--neon-magenta);
+  font-weight: 600;
+}
+
+.channel-member-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+}

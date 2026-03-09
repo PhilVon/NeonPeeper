@@ -15,6 +15,7 @@ export class EphemeralMessageManager {
 
   scheduleDelete(messageId: string, chatId: string, timestamp: number, ttl: number): void {
     if (!ttl || ttl <= 0) return
+    if (chatId.startsWith('community:')) return // Ephemeral not supported in community channels
     this.scheduled.set(messageId, {
       chatId,
       expiresAt: timestamp + ttl,

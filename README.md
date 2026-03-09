@@ -16,6 +16,7 @@ A peer-to-peer chat and video calling desktop application with a cyberpunk/neon 
 - **Audio-Only Mode** — Join calls with mic only; toggle camera on/off mid-call
 - **Screen Sharing** — Share your screen via Electron's desktopCapturer with per-chat context
 - **Group Chat** — Multi-peer group conversations with member management and chat sync
+- **Community Servers** — Persistent, channel-based group chat (like Discord/IRC) with message history, voice/video, and moderation — backed by SQLite or MySQL
 - **File Transfer** — Send files peer-to-peer with chunked transfer, progress tracking, accept/reject flow, and SHA-256 integrity verification
 - **Message Queuing** — Messages sent while a peer is disconnected are queued and automatically delivered on reconnection
 
@@ -86,6 +87,59 @@ npm run dev
 
 The signaling server runs on port 8080 by default. If mediasoup compilation fails, the server still starts — SFU features will be unavailable and calls will remain in mesh mode.
 
+### Community Server (optional)
+
+The community server provides persistent, channel-based group chat with message history — similar to Discord or IRC. Clients connect via WebSocket and communicate using the NEONP2P/1.0 protocol.
+
+```bash
+cd community-server
+npm install
+npm run dev        # Starts on ws://localhost:8090
+```
+
+#### Database
+
+Supports two backends via an adapter pattern:
+
+| Backend | Library | Use Case |
+|---------|---------|----------|
+| **SQLite** (default) | `better-sqlite3` | Local/small deployments |
+| **MySQL** | `mysql2` | Larger deployments |
+
+#### Configuration
+
+All settings are configured via environment variables (or a `.env` file in `community-server/`):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SERVER_ID` | `community-server-1` | Unique server identifier |
+| `SERVER_NAME` | `Community Server` | Display name shown to clients |
+| `SERVER_DESCRIPTION` | `A Neon Peeper community server` | Server description |
+| `SERVER_OWNER_ID` | _(empty)_ | Peer ID of the server owner (required for moderation) |
+| `PORT` | `8090` | WebSocket listen port |
+| `SIGNALING_URL` | `ws://localhost:8080` | Signaling server URL for discovery |
+| `DB_BACKEND` | `sqlite` | Database backend (`sqlite` or `mysql`) |
+| `SQLITE_PATH` | `./data/community.db` | SQLite database file path |
+| `MYSQL_HOST` | `localhost` | MySQL host |
+| `MYSQL_PORT` | `3306` | MySQL port |
+| `MYSQL_USER` | `neonpeeper` | MySQL user |
+| `MYSQL_PASSWORD` | _(empty)_ | MySQL password |
+| `MYSQL_DATABASE` | `neon_community` | MySQL database name |
+| `DEFAULT_CHANNELS` | `general,random` | Comma-separated channels to auto-create on first run |
+
+#### How It Works
+
+1. Client connects via WebSocket and sends `HELLO` with peer ID and display name
+2. Server responds with `COMMUNITY_INFO` (server name, description, member count)
+3. Client requests `CHANNEL_LIST` to browse available channels
+4. Client joins a channel via `CHANNEL_JOIN` — server sends recent message history and broadcasts the join to other members
+5. Messages (`TEXT`, `TEXT_EDIT`, `TEXT_DELETE`) are stored in the database and relayed to all channel members
+6. Voice/video uses peer-to-peer WebRTC with the server relaying `MEDIA_OFFER`/`MEDIA_ANSWER`/`MEDIA_ICE` signaling between participants
+
+#### Moderation
+
+The server owner (identified by `SERVER_OWNER_ID`) can ban users from a specific channel or server-wide (`channelId: '*'`). Banned users are removed from channel membership and notified immediately.
+
 ## Building
 
 ```bash
@@ -143,7 +197,7 @@ signaling-server/    # Standalone WebSocket signaling + mediasoup SFU server
 
 ## Protocol
 
-Neon Peeper uses the **NEONP2P/1.0** protocol with 31 message types across 8 categories:
+Neon Peeper uses the **NEONP2P/1.0** protocol with 39 message types across 9 categories:
 
 | Category | Types |
 |----------|-------|
@@ -154,6 +208,7 @@ Neon Peeper uses the **NEONP2P/1.0** protocol with 31 message types across 8 cat
 | Chat | `CHAT_CREATE`, `CHAT_INVITE`, `CHAT_JOIN`, `CHAT_LEAVE`, `CHAT_SYNC` |
 | Media | `MEDIA_OFFER`, `MEDIA_ANSWER`, `MEDIA_ICE`, `MEDIA_START`, `MEDIA_STOP`, `MEDIA_QUALITY` |
 | File Transfer | `FILE_OFFER`, `FILE_ACCEPT`, `FILE_CHUNK`, `FILE_COMPLETE` |
+| Community | `COMMUNITY_INFO`, `CHANNEL_LIST`, `CHANNEL_JOIN`, `CHANNEL_LEAVE`, `CHANNEL_HISTORY`, `CHANNEL_MEMBERS`, `BAN_USER`, `UNBAN_USER` |
 | Error | `ERROR` |
 
 Messages are signed with Ed25519 when signing is enabled. Text messages support E2E encryption via ECDH key exchange and AES-256-GCM. Error responses use structured codes (1000–6099) covering connection, message, chat, media, security, and file transfer categories. Chat, file, and presence messages are gated behind mutual peer verification.

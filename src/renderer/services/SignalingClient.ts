@@ -10,6 +10,9 @@ type EventCallback = (...args: unknown[]) => void
 interface DiscoveredPeer {
   peerId: string
   displayName: string
+  peerType?: string
+  capabilities?: string[]
+  wsUrl?: string
 }
 
 export class SignalingClient {
@@ -172,12 +175,21 @@ export class SignalingClient {
               id: peer.peerId,
               displayName: peer.displayName,
               publicKey: '',
-              capabilities: [],
+              capabilities: peer.capabilities || [],
               firstSeen: Date.now(),
               lastSeen: Date.now(),
+              peerType: peer.peerType as 'user' | 'community-server' | undefined,
+              wsUrl: peer.wsUrl,
             })
           } else {
-            usePeerStore.getState().setPeerStatus(peer.peerId, Date.now())
+            usePeerStore.getState().upsertPeer({
+              ...existing,
+              displayName: peer.displayName,
+              lastSeen: Date.now(),
+              peerType: peer.peerType as 'user' | 'community-server' | undefined,
+              wsUrl: peer.wsUrl,
+              capabilities: peer.capabilities || existing.capabilities,
+            })
           }
         }
         break
@@ -210,6 +222,9 @@ export class SignalingClient {
       case 'peer-joined': {
         const peerId = msg.peerId as string
         const displayName = (msg.displayName as string) || ''
+        const peerType = msg.peerType as string | undefined
+        const peerCapabilities = msg.capabilities as string[] | undefined
+        const peerWsUrl = msg.wsUrl as string | undefined
         if (msg.roomId) {
           // Room-scoped event — don't update global peer store
           this.emit('room-peer-joined', msg.roomId, peerId, displayName)
@@ -218,9 +233,11 @@ export class SignalingClient {
             id: peerId,
             displayName,
             publicKey: '',
-            capabilities: [],
+            capabilities: peerCapabilities || [],
             firstSeen: Date.now(),
             lastSeen: Date.now(),
+            peerType: peerType as 'user' | 'community-server' | undefined,
+            wsUrl: peerWsUrl,
           })
           this.emit('peer-joined', peerId, displayName)
         }

@@ -1,6 +1,6 @@
 {
   "name": "neon-peeper-signaling",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "WebSocket signaling server for Neon Peeper P2P connections",
   "main": "src/index.ts",
   "scripts": {

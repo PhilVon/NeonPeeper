@@ -16,6 +16,7 @@ interface ChatInputProps {
   onCancelEdit?: () => void
   onConfirmEdit?: (messageId: string, content: string) => void
   disabled?: boolean
+  isCommunityChat?: boolean
 }
 
 export function ChatInput({
@@ -28,7 +29,9 @@ export function ChatInput({
   onCancelEdit,
   onConfirmEdit,
   disabled = false,
+  isCommunityChat: _isCommunityChat = false,
 }: ChatInputProps) {
+  void _isCommunityChat // Reserved for future TTL toggle visibility
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [value, setValue] = useState('')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)

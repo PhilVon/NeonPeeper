@@ -1,7 +1,7 @@
 import type { EmbeddedEmoji } from './emoji'
 
 // Protocol version constant
-export const PROTOCOL_VERSION = 'NEONP2P/1.0' as const
+export const PROTOCOL_VERSION = 'NEONP2P/2.0' as const
 
 // All 27 message types
 export type MessageType =
@@ -42,6 +42,15 @@ export type MessageType =
   | 'FILE_ACCEPT'
   | 'FILE_CHUNK'
   | 'FILE_COMPLETE'
+  // Community (8)
+  | 'COMMUNITY_INFO'
+  | 'CHANNEL_LIST'
+  | 'CHANNEL_JOIN'
+  | 'CHANNEL_LEAVE'
+  | 'CHANNEL_HISTORY'
+  | 'CHANNEL_MEMBERS'
+  | 'BAN_USER'
+  | 'UNBAN_USER'
   // Error (1)
   | 'ERROR'
 
@@ -246,6 +255,81 @@ export interface FileCompletePayload {
   receivedHash?: string
 }
 
+// Community payloads
+export interface CommunityInfoPayload {
+  serverId: string
+  serverName: string
+  description: string
+  iconDataUrl?: string
+  channelCount: number
+  memberCount: number
+  ownerId: string
+}
+
+export interface ChannelListPayload {
+  direction: 'request' | 'response'
+  channels?: Array<{
+    id: string
+    name: string
+    description: string
+    memberCount: number
+    topic?: string
+  }>
+}
+
+export interface ChannelJoinPayload {
+  channelId: string
+  peerId: string
+  displayName: string
+}
+
+export interface ChannelLeavePayload {
+  channelId: string
+  peerId: string
+}
+
+export interface ChannelHistoryPayload {
+  channelId: string
+  direction: 'request' | 'response'
+  before?: number
+  limit?: number
+  messages?: Array<{
+    id: string
+    from: string
+    displayName: string
+    content: string
+    timestamp: number
+    contentType?: 'text' | 'gif'
+    meta?: GifMeta
+    replyTo?: string
+    edited?: { editedAt: number; originalContent: string }
+    deleted?: boolean
+    customEmojis?: EmbeddedEmoji[]
+  }>
+}
+
+export interface ChannelMembersPayload {
+  channelId: string
+  direction: 'request' | 'response'
+  members?: Array<{
+    peerId: string
+    displayName: string
+    role: 'owner' | 'member'
+    joinedAt: number
+  }>
+}
+
+export interface BanUserPayload {
+  channelId: string // '*' for server-wide
+  targetPeerId: string
+  reason?: string
+}
+
+export interface UnbanUserPayload {
+  channelId: string
+  targetPeerId: string
+}
+
 // Error payload
 export interface ErrorPayload {
   code: number
@@ -286,6 +370,14 @@ export interface PayloadMap {
   FILE_ACCEPT: FileAcceptPayload
   FILE_CHUNK: FileChunkPayload
   FILE_COMPLETE: FileCompletePayload
+  COMMUNITY_INFO: CommunityInfoPayload
+  CHANNEL_LIST: ChannelListPayload
+  CHANNEL_JOIN: ChannelJoinPayload
+  CHANNEL_LEAVE: ChannelLeavePayload
+  CHANNEL_HISTORY: ChannelHistoryPayload
+  CHANNEL_MEMBERS: ChannelMembersPayload
+  BAN_USER: BanUserPayload
+  UNBAN_USER: UnbanUserPayload
   ERROR: ErrorPayload
 }
 
@@ -357,6 +449,12 @@ export const ERROR_CODES = {
   FILE_TOO_LARGE: 6001,
   FILE_REJECTED: 6002,
   FILE_HASH_MISMATCH: 6003,
+  // Community errors (7000-7099)
+  CHANNEL_NOT_FOUND: 7000,
+  CHANNEL_BANNED: 7001,
+  NOT_CHANNEL_MEMBER: 7002,
+  NOT_SERVER_OWNER: 7003,
+  EPHEMERAL_NOT_ALLOWED: 7004,
 } as const
 
 // --- Helper to create messages ---

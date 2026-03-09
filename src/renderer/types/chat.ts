@@ -20,7 +20,7 @@ export interface ChatMessage {
   ttl?: number
 }
 
-export type ChatType = 'direct' | 'group'
+export type ChatType = 'direct' | 'group' | 'community'
 export type ChatState = 'created' | 'active' | 'archived' | 'left'
 
 export interface Chat {
@@ -75,4 +75,8 @@ export interface QueuedMessage {
 export function generateDirectChatId(peerA: string, peerB: string): string {
   const sorted = [peerA, peerB].sort()
   return `direct:${sorted[0]}:${sorted[1]}`
+}
+
+export function generateCommunityChatId(serverId: string, channelId: string): string {
+  return `community:${serverId}:${channelId}`
 }
