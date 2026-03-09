@@ -8,6 +8,8 @@ export interface PeerProfile {
   status?: 'online' | 'busy' | 'idle'
   avatarDataUrl?: string
   audioBitrate?: number
+  peerType?: 'user' | 'community-server'
+  wsUrl?: string
 }
 
 export interface LocalProfile {

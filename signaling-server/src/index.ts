@@ -34,6 +34,9 @@ interface PeerInfo {
   rooms: Set<string>
   lastPong: number
   messageTimestamps: number[]  // for rate limiting
+  peerType?: string
+  capabilities?: string[]
+  wsUrl?: string
 }
 
 const peers = new Map<string, PeerInfo>()
@@ -365,6 +368,10 @@ wss.on('connection', (ws) => {
           removePeer(peerId)
         }
 
+        const peerType = msg.peerType as string | undefined
+        const capabilities = msg.capabilities as string[] | undefined
+        const wsUrl = msg.wsUrl as string | undefined
+
         registeredPeerId = peerId
         peers.set(peerId, {
           ws,
@@ -373,6 +380,9 @@ wss.on('connection', (ws) => {
           rooms: new Set(),
           lastPong: Date.now(),
           messageTimestamps: [],
+          peerType,
+          capabilities,
+          wsUrl,
         })
 
         send(ws, { type: 'registered', peerId })
@@ -384,6 +394,9 @@ wss.on('connection', (ws) => {
               type: 'peer-joined',
               peerId,
               displayName,
+              ...(peerType && { peerType }),
+              ...(capabilities && { capabilities }),
+              ...(wsUrl && { wsUrl }),
             })
           }
         }
@@ -400,7 +413,7 @@ wss.on('connection', (ws) => {
         }
 
         const roomId = msg.roomId as string | undefined
-        let peerList: Array<{ peerId: string; displayName: string }>
+        let peerList: Array<{ peerId: string; displayName: string; peerType?: string; capabilities?: string[]; wsUrl?: string }>
 
         if (roomId && rooms.has(roomId)) {
           const room = rooms.get(roomId)!
@@ -408,12 +421,24 @@ wss.on('connection', (ws) => {
             .filter((id) => id !== peer.peerId)
             .map((id) => {
               const p = peers.get(id)
-              return { peerId: id, displayName: p?.displayName || 'Unknown' }
+              return {
+                peerId: id,
+                displayName: p?.displayName || 'Unknown',
+                ...(p?.peerType && { peerType: p.peerType }),
+                ...(p?.capabilities && { capabilities: p.capabilities }),
+                ...(p?.wsUrl && { wsUrl: p.wsUrl }),
+              }
             })
         } else {
           peerList = Array.from(peers.values())
             .filter((p) => p.peerId !== peer.peerId)
-            .map((p) => ({ peerId: p.peerId, displayName: p.displayName }))
+            .map((p) => ({
+              peerId: p.peerId,
+              displayName: p.displayName,
+              ...(p.peerType && { peerType: p.peerType }),
+              ...(p.capabilities && { capabilities: p.capabilities }),
+              ...(p.wsUrl && { wsUrl: p.wsUrl }),
+            }))
         }
 
         send(ws, { type: 'peer-list', peers: peerList })

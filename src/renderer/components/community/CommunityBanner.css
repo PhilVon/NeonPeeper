@@ -1,0 +1,22 @@
+.community-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: rgba(255, 0, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 0, 255, 0.2);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.community-banner-path {
+  color: var(--neon-magenta);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.community-banner-warning {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-style: italic;
+}

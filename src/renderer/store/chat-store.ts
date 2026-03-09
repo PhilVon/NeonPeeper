@@ -39,7 +39,12 @@ export const useChatStore = create<ChatState>((set) => ({
   addMessage: (message) =>
     set((state) => {
       const messages = new Map(state.messages)
-      const chatMessages = [...(messages.get(message.chatId) ?? []), message]
+      const existing = messages.get(message.chatId) ?? []
+
+      // Deduplicate: skip if message ID already present
+      if (existing.some((m) => m.id === message.id)) return state
+
+      const chatMessages = [...existing, message]
       messages.set(message.chatId, chatMessages)
 
       // Update chat last activity
