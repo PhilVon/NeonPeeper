@@ -69,6 +69,19 @@
   border-radius: var(--radius-sm);
 }
 
+.image-editor-preview-canvas-circle {
+  border-radius: 50%;
+}
+
+.image-editor-canvas-wrapper-circle::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
 .image-editor-controls {
   display: flex;
   flex-direction: column;

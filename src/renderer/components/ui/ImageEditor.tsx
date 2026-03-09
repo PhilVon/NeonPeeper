@@ -84,18 +84,10 @@ export function ImageEditor({
     ctx.drawImage(image, offsetX, offsetY, image.width * zoom, image.height * zoom)
     ctx.filter = 'none'
 
-    // Preview canvas
+    // Preview canvas — copy directly from editor canvas (filters already baked in)
     const pCtx = preview.getContext('2d')!
     pCtx.clearRect(0, 0, targetSize, targetSize)
-    pCtx.filter = `brightness(${brightness}%) contrast(${contrast}%)`
-    pCtx.drawImage(
-      image,
-      offsetX / zoom, offsetY / zoom,
-      CANVAS_SIZE / zoom, CANVAS_SIZE / zoom,
-      0, 0,
-      targetSize, targetSize
-    )
-    pCtx.filter = 'none'
+    pCtx.drawImage(canvas, 0, 0, CANVAS_SIZE, CANVAS_SIZE, 0, 0, targetSize, targetSize)
 
     // Generate output
     generateOutput(pCtx, preview)
@@ -149,11 +141,19 @@ export function ImageEditor({
     setDragging(false)
   }
 
+  const handleZoomChange = useCallback((newZoomRaw: number) => {
+    const newZoom = Math.max(0.1, Math.min(5, newZoomRaw))
+    const center = CANVAS_SIZE / 2
+    setOffsetX((ox) => center - ((center - ox) / zoom) * newZoom)
+    setOffsetY((oy) => center - ((center - oy) / zoom) * newZoom)
+    setZoom(newZoom)
+  }, [zoom])
+
   const handleWheel = (e: React.WheelEvent) => {
     if (!image) return
     e.preventDefault()
     const delta = e.deltaY > 0 ? -0.05 : 0.05
-    setZoom((z) => Math.max(0.1, Math.min(5, z + delta)))
+    handleZoomChange(zoom + delta)
   }
 
   const handleSave = () => {
@@ -194,7 +194,7 @@ export function ImageEditor({
         <div className="image-editor-workspace">
           <div className="image-editor-canvas-area">
             <div
-              className="image-editor-canvas-wrapper"
+              className={['image-editor-canvas-wrapper', mode === 'avatar' && 'image-editor-canvas-wrapper-circle'].filter(Boolean).join(' ')}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -213,7 +213,7 @@ export function ImageEditor({
               </span>
               <canvas
                 ref={previewRef}
-                className="image-editor-preview-canvas"
+                className={['image-editor-preview-canvas', mode === 'avatar' && 'image-editor-preview-canvas-circle'].filter(Boolean).join(' ')}
                 width={targetSize}
                 height={targetSize}
               />
@@ -232,7 +232,7 @@ export function ImageEditor({
               min={10}
               max={500}
               value={Math.round(zoom * 100)}
-              onChange={(e) => setZoom(Number((e.target as HTMLInputElement).value) / 100)}
+              onChange={(e) => handleZoomChange(Number((e.target as HTMLInputElement).value) / 100)}
               showValue
               color="cyan"
             />
