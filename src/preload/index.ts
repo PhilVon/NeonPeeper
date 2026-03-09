@@ -9,11 +9,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Screen sharing
   getDesktopSources: () => ipcRenderer.invoke('get-desktop-sources'),
 
-  // Notifications
-  showNotification: (title: string, body: string) => ipcRenderer.send('show-notification', title, body),
+  // Notifications — validate string types and lengths before forwarding
+  showNotification: (title: string, body: string) => {
+    if (typeof title !== 'string' || typeof body !== 'string') return
+    ipcRenderer.send('show-notification', title.slice(0, 100), body.slice(0, 500))
+  },
 
-  // Media access
-  getMediaAccess: (mediaType: string) => ipcRenderer.invoke('get-media-access', mediaType),
+  // Media access — validate mediaType before forwarding
+  getMediaAccess: (mediaType: string) => {
+    if (typeof mediaType !== 'string' || !['camera', 'microphone'].includes(mediaType)) {
+      return Promise.reject(new Error('Invalid media type'))
+    }
+    return ipcRenderer.invoke('get-media-access', mediaType)
+  },
 
   // App path
   getAppPath: () => ipcRenderer.invoke('get-app-path'),

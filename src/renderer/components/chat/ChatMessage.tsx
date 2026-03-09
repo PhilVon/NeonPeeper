@@ -37,12 +37,20 @@ function formatTtl(ms: number): string {
   return `${Math.round(ms / 86_400_000)}d`
 }
 
+function isValidEmojiDataUrl(url: string): boolean {
+  return /^data:image\/(png|jpeg|gif|webp|svg\+xml);base64,/.test(url)
+}
+
 function renderMessageContent(content: string, customEmojis?: EmbeddedEmoji[]): React.ReactNode {
   if (!customEmojis || customEmojis.length === 0) {
     return content
   }
 
-  const emojiMap = new Map(customEmojis.map((e) => [e.shortcode, e.dataUrl]))
+  const emojiMap = new Map(
+    customEmojis
+      .filter((e) => isValidEmojiDataUrl(e.dataUrl))
+      .map((e) => [e.shortcode, e.dataUrl])
+  )
   const parts: React.ReactNode[] = []
   const regex = /:([a-zA-Z0-9_]{2,32}):/g
   let lastIndex = 0

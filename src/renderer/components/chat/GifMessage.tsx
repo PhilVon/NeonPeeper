@@ -7,12 +7,21 @@ interface GifMessageProps {
   meta?: GifMeta
 }
 
+function isValidGifUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export function GifMessage({ url, meta }: GifMessageProps) {
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(false)
 
-  if (error) {
-    return <span className="gif-message-error">{url}</span>
+  if (error || !isValidGifUrl(url)) {
+    return <span className="gif-message-error">Invalid GIF URL</span>
   }
 
   return (
@@ -26,6 +35,7 @@ export function GifMessage({ url, meta }: GifMessageProps) {
         onLoad={() => setLoaded(true)}
         onError={() => setError(true)}
         style={loaded ? undefined : { position: 'absolute', opacity: 0 }}
+        referrerPolicy="no-referrer"
       />
     </div>
   )

@@ -110,6 +110,23 @@ export class MessageRouter {
     }
     this.seenMessageIds.add(message.id)
 
+    // Timestamp freshness check — reject messages older than 5 minutes or >30s in the future
+    // Skip for HELLO/HELLO_ACK which may arrive during connection setup
+    const MAX_MESSAGE_AGE_MS = 5 * 60 * 1000
+    const MAX_FUTURE_DRIFT_MS = 30 * 1000
+    if (message.type !== 'HELLO' && message.type !== 'HELLO_ACK') {
+      const now = Date.now()
+      const age = now - message.timestamp
+      if (age > MAX_MESSAGE_AGE_MS) {
+        console.warn('[MessageRouter] Stale message rejected (age:', age, 'ms) from', peerId)
+        return
+      }
+      if (age < -MAX_FUTURE_DRIFT_MS) {
+        console.warn('[MessageRouter] Future-dated message rejected from', peerId)
+        return
+      }
+    }
+
     // Prune dedup set
     if (this.seenMessageIds.size > PROTOCOL_CONSTANTS.DEDUP_HISTORY_SIZE) {
       const entries = Array.from(this.seenMessageIds)
@@ -119,26 +136,40 @@ export class MessageRouter {
       }
     }
 
-    // Verify signature if present
-    if (message.signature) {
-      const peer = usePeerStore.getState().peers.get(message.from)
-      if (peer?.publicKey) {
-        try {
-          const valid = await getCryptoManager().verifySignature(
-            message as unknown as Record<string, unknown>,
-            message.signature,
-            peer.publicKey
-          )
-          if (!valid) {
-            console.warn('[MessageRouter] Invalid signature from', peerId)
+    // Verify message signature
+    const peer = usePeerStore.getState().peers.get(message.from)
+    const skipSignatureTypes: MessageType[] = ['HELLO', 'HELLO_ACK', 'PING', 'PONG']
+    if (!skipSignatureTypes.includes(message.type)) {
+      if (message.signature) {
+        if (peer?.publicKey) {
+          try {
+            const valid = await getCryptoManager().verifySignature(
+              message as unknown as Record<string, unknown>,
+              message.signature,
+              peer.publicKey
+            )
+            if (!valid) {
+              console.warn('[MessageRouter] Invalid signature from', peerId)
+              if (message.type !== 'ERROR') {
+                this.sendError(peerId, ERROR_CODES.INVALID_SIGNATURE, 'Invalid message signature', message.id)
+              }
+              return
+            }
+          } catch {
+            console.warn('[MessageRouter] Signature verification error from', peerId)
             if (message.type !== 'ERROR') {
-              this.sendError(peerId, ERROR_CODES.INVALID_SIGNATURE, 'Invalid message signature', message.id)
+              this.sendError(peerId, ERROR_CODES.INVALID_SIGNATURE, 'Signature verification failed', message.id)
             }
             return
           }
-        } catch {
-          // Verification failed — allow unsigned for backward compat
         }
+      } else if (peer?.publicKey) {
+        // Reject unsigned messages from peers with known public keys
+        console.warn('[MessageRouter] Unsigned message from known peer', peerId)
+        if (message.type !== 'ERROR') {
+          this.sendError(peerId, ERROR_CODES.INVALID_SIGNATURE, 'Message signature required', message.id)
+        }
+        return
       }
     }
 
@@ -148,6 +179,7 @@ export class MessageRouter {
       'TYPING_START', 'TYPING_STOP',
       'CHAT_CREATE', 'CHAT_INVITE', 'CHAT_JOIN', 'CHAT_LEAVE', 'CHAT_SYNC',
       'STATUS_UPDATE', 'PROFILE_UPDATE',
+      'MEDIA_OFFER', 'MEDIA_ANSWER', 'MEDIA_ICE', 'MEDIA_START', 'MEDIA_STOP', 'MEDIA_QUALITY',
       'FILE_OFFER', 'FILE_ACCEPT', 'FILE_CHUNK', 'FILE_COMPLETE',
     ]
     if (GATED_TYPES.includes(message.type)) {
@@ -332,6 +364,20 @@ export class MessageRouter {
   private handleVerifyConfirm(message: NeonP2PMessage<'VERIFY_CONFIRM'>, peerId: string): void {
     const crypto = getCryptoManager()
     const cm = getConnectionManager()
+
+    // Require at least 'connected' state (HELLO handshake complete)
+    const connState = useConnectionStore.getState().getConnection(peerId)?.connectionState
+    if (!connState || connState === 'disconnected' || connState === 'connecting' || connState === 'signaling') {
+      console.warn('[MessageRouter] VERIFY_CONFIRM from non-connected peer', peerId)
+      return
+    }
+
+    // Require valid signature (already enforced by signature check above, but defense-in-depth)
+    if (!message.signature) {
+      console.warn('[MessageRouter] VERIFY_CONFIRM without signature from', peerId)
+      this.sendError(peerId, ERROR_CODES.INVALID_SIGNATURE, 'VERIFY_CONFIRM requires a valid signature', message.id)
+      return
+    }
 
     // Mark that the remote peer has verified us
     crypto.markRemoteVerified(message.from)

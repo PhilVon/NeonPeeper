@@ -398,13 +398,14 @@ export class ConnectionManager {
       return false
     }
 
-    // Sign message if enabled (skip PING/PONG for performance)
-    if (useSettingsStore.getState().messageSigning && message.type !== 'PING' && message.type !== 'PONG') {
+    // Always sign messages (skip PING/PONG for performance)
+    if (message.type !== 'PING' && message.type !== 'PONG') {
       try {
         const signature = await getCryptoManager().signMessage(message as unknown as Record<string, unknown>)
         ;(message as NeonP2PMessage).signature = signature
-      } catch {
-        // Send unsigned on failure
+      } catch (err) {
+        console.error('[ConnectionManager] Failed to sign message:', err)
+        return false
       }
     }
 
