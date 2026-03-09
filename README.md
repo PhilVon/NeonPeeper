@@ -4,12 +4,9 @@
 
 # Neon Peeper
 
-> **Work in Progress** — This project is under active development. Features may be incomplete, unstable, or subject to change.
-
 A peer-to-peer chat and video calling desktop application with a cyberpunk/neon aesthetic. Built with Electron, React, and TypeScript, Neon Peeper uses WebRTC for direct P2P communication — no central server stores your messages.
 
 ![License](https://img.shields.io/badge/license-GPLv3-blue)
-![Status](https://img.shields.io/badge/status-in%20development-orange)
 
 ## Features
 
@@ -43,7 +40,7 @@ A peer-to-peer chat and video calling desktop application with a cyberpunk/neon 
 - **Short Verification Codes** — Verify peer identity out-of-band with an 8-digit `XXXX-XXXX` code; mutual verification required before chat access
 - **Trust-Gated Chat** — Chat, file transfer, and presence features are blocked until both peers complete mutual verification
 - **Auto-Restore Verification** — Reconnecting peers with the same public key automatically restore verified status without re-verification
-- **End-to-End Encryption** — Optional E2E encryption using ECDH P-256 key exchange and AES-256-GCM, with a per-message lock icon indicator
+- **End-to-End Encryption** — E2E encryption using ECDH P-256 key exchange and AES-256-GCM, with a per-message lock icon indicator
 - **Ephemeral Messages** — Auto-delete sent messages after a configurable TTL (30s to 7d); both sender and receiver delete independently
 - **Context Isolation** — Electron security best practices with `contextIsolation: true` and `nodeIntegration: false`
 
@@ -58,7 +55,6 @@ A peer-to-peer chat and video calling desktop application with a cyberpunk/neon 
 - **Split-Pane Video** — Resizable chat/video split when media is active, with focused tile and filmstrip layouts
 - **Desktop Notifications** — Native OS notifications for incoming messages when the window is unfocused
 - **Auto Read Receipts** — Messages are automatically marked as read when scrolled into view
-- **Accessibility** — ARIA roles and attributes, keyboard navigation with arrow keys across peer list, chat list, sidebar, and media controls
 
 ## Prerequisites
 
@@ -147,13 +143,16 @@ The server owner (identified by `SERVER_OWNER_ID`) can ban users from a specific
 ## Building
 
 ```bash
-npm run build     # Build for production
-npm run preview   # Preview the production build
+npm run build        # Build for production
+npm run preview      # Preview the production build
+
+npm run build:win    # Package for Windows (NSIS installer + portable)
+npm run build:linux  # Package for Linux (AppImage, deb, pacman)
 ```
 
 ## Tech Stack
 
-- **Electron 28** — Desktop shell with frameless window and custom title bar
+- **Electron 40** — Desktop shell with frameless window and custom title bar
 - **React 18** — UI framework
 - **TypeScript** — Type safety throughout
 - **WebRTC** — Peer-to-peer audio, video, and data channels
@@ -171,21 +170,29 @@ src/
 ├── preload/         # Context bridge (IPC)
 ├── renderer/        # React application
 │   ├── components/
-│   │   ├── chat/      # ChatView, ChatList, ChatInput, ChatMessage, ChatHeader, TypingIndicator, FileTransferProgress, CustomEmojiPicker
-│   │   ├── media/     # ChatVideoPanel, VideoGrid, VideoTile, MediaControls, ScreenSourcePicker
+│   │   ├── chat/      # ChatView, ChatList, ChatInput, ChatMessage, ChatHeader,
+│   │   │              # TypingIndicator, GroupMemberList, CustomEmojiPicker,
+│   │   │              # FileTransferProgress, GiphySearchPanel, GifMessage
+│   │   ├── media/     # ChatVideoPanel, VideoGrid, VideoTile, MediaControls,
+│   │   │              # DeviceSelector, ScreenShareView, ScreenSourcePicker, QualityIndicator
 │   │   ├── peers/     # PeerList, PeerCard, PeerInvite, PeerVerifyDialog, ConnectionDialog
-│   │   ├── settings/  # MediaSettings, NetworkSettings, QualitySettings, EmojiManager
-│   │   ├── layout/    # MainLayout, TitleBar, Sidebar, StatusBar, SplitPane
-│   │   ├── ui/        # NeonButton, NeonCard, NeonInput, Modal, Toast, Avatar, ImageEditor, etc.
-│   │   └── demo/      # Component showcase
-│   ├── hooks/         # useSpeakingDetection, useMediaStream, useClickOutside, useArrowNavigation, etc.
+│   │   ├── settings/  # MediaSettings, NetworkSettings, QualitySettings, EmojiManager, PrivacySettings
+│   │   ├── layout/    # MainLayout, TitleBar, Sidebar, StatusBar, SplitPane, ResizablePanel, Collapsible
+│   │   ├── ui/        # NeonButton, NeonCard, NeonInput, Modal, Toast, Tabs, Avatar, Badge,
+│   │   │              # DataTable, ImageEditor, Tooltip, Toggle, ProgressBar, and more
+│   │   ├── demo/      # Component showcase
+│   │   └── utils/     # Portal
+│   ├── hooks/         # useClickOutside, useEscapeKey, useFocusTrap, useMediaStream,
+│   │                  # useSpeakingDetection, useTypingEffect, useTextScramble,
+│   │                  # useCountUp, useReplayAnimation, useArrowNavigation
 │   ├── services/      # ConnectionManager, MessageRouter, MediaManager, CryptoManager,
-│   │                  # SignalingClient, CommunityClient, PersistenceManager, PerformanceMonitor, FileTransferManager, SFUClient
-│   ├── store/         # Zustand stores (chat, community, connection, emoji, file-transfer, media, peer, performance, settings, toast, ui)
+│   │                  # SignalingClient, PersistenceManager, PerformanceMonitor,
+│   │                  # FileTransferManager, EphemeralMessageManager, SFUClient
+│   ├── store/         # Zustand stores (chat, connection, emoji, file-transfer,
+│   │                  # media, peer, performance, settings, toast, ui)
 │   ├── styles/        # CSS variables, animations, effects
-│   └── types/         # Protocol definitions, peer/chat/media types
-signaling-server/    # Standalone WebSocket signaling server
-community-server/    # Community server with persistent channels, moderation, and voice relay
+│   └── types/         # Protocol definitions, peer/chat/media/emoji types
+signaling-server/    # Standalone WebSocket signaling + mediasoup SFU server
 ```
 
 ## Protocol
@@ -204,44 +211,7 @@ Neon Peeper uses the **NEONP2P/1.0** protocol with 39 message types across 9 cat
 | Community | `COMMUNITY_INFO`, `CHANNEL_LIST`, `CHANNEL_JOIN`, `CHANNEL_LEAVE`, `CHANNEL_HISTORY`, `CHANNEL_MEMBERS`, `BAN_USER`, `UNBAN_USER` |
 | Error | `ERROR` |
 
-Messages are signed with Ed25519 when signing is enabled. Text messages support optional E2E encryption via ECDH key exchange and AES-256-GCM. Error responses use structured codes (1000-6099) covering connection, message, chat, media, security, and file transfer categories. Chat, file, and presence messages are gated behind mutual peer verification (`VERIFICATION_REQUIRED` error 5004).
-
-## Current Status
-
-- [x] Core P2P text messaging with edit/delete/reply
-- [x] WebRTC connection management with dual data channels
-- [x] Signaling server for peer discovery with room bridging
-- [x] Manual SDP exchange (serverless mode)
-- [x] Per-chat video and audio calls
-- [x] Audio-only call mode
-- [x] Screen sharing with per-chat context
-- [x] Speaking detection with visual feedback
-- [x] Adaptive bitrate control
-- [x] Configurable video codec preferences
-- [x] Emoji picker and GIF support (Giphy)
-- [x] Group chat with member sync
-- [x] Message persistence (IndexedDB)
-- [x] Ed25519 identity keys with message signing
-- [x] TOFU key pinning with change alerts
-- [x] Auto-reconnection with exponential backoff
-- [x] Configurable STUN/TURN servers
-- [x] Protocol error handling with structured error codes
-- [x] User avatars with interactive image editor
-- [x] Custom emojis with inline rendering
-- [x] File transfer with chunked delivery and progress tracking
-- [x] End-to-end message encryption (ECDH + AES-256-GCM)
-- [x] Message queuing for offline peers
-- [x] Native desktop notifications
-- [x] Auto read receipts via scroll visibility
-- [x] Off-screen video pause
-- [x] Short verification codes (`XXXX-XXXX`) with mutual verification
-- [x] Trust-gated chat (profile withheld until verified)
-- [x] Accessibility (ARIA, keyboard navigation)
-- [x] SFU support for large group calls (mediasoup, auto topology switch at 7+ peers)
-- [x] Community servers with persistent channels, message history, and moderation
-- [x] Community voice/video chat with WebRTC media relay
-- [x] SQLite and MySQL database backends for community servers
-- [ ] Packaged desktop builds (Windows, macOS, Linux)
+Messages are signed with Ed25519 when signing is enabled. Text messages support E2E encryption via ECDH key exchange and AES-256-GCM. Error responses use structured codes (1000–6099) covering connection, message, chat, media, security, and file transfer categories. Chat, file, and presence messages are gated behind mutual peer verification.
 
 ## License
 
