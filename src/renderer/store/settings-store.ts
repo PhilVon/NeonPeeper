@@ -66,10 +66,10 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       peerId: '',
       displayName: 'Neon User',
-      signalingUrl: 'ws://localhost:8080',
+      signalingUrl: 'wss://localhost:8080',
       autoConnect: false,
       desktopNotifications: true,
-      messageSigning: false,
+      messageSigning: true,
       e2eEncryption: false,
 
       qualityPreset: 'high',
@@ -96,7 +96,12 @@ export const useSettingsStore = create<SettingsState>()(
       setDisplayName: (name) => set({ displayName: name }),
       setAvatarDataUrl: (url) => set({ avatarDataUrl: url }),
       setGiphyApiKey: (key) => set({ giphyApiKey: key }),
-      setSignalingUrl: (url) => set({ signalingUrl: url }),
+      setSignalingUrl: (url) => {
+        if (url.startsWith('ws://') && !url.startsWith('ws://localhost') && !url.startsWith('ws://127.0.0.1')) {
+          console.warn('[Settings] Using unencrypted ws:// signaling URL is insecure. Use wss:// for production.')
+        }
+        set({ signalingUrl: url })
+      },
       setAutoConnect: (enabled) => set({ autoConnect: enabled }),
       setDesktopNotifications: (enabled) => set({ desktopNotifications: enabled }),
       setMessageSigning: (enabled) => set({ messageSigning: enabled }),

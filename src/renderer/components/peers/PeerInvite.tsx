@@ -9,6 +9,15 @@ import { getConnectionManager } from '../../services/ConnectionManager'
 import type { ManualConnectionData } from '../../types/peer'
 import './PeerInvite.css'
 
+function validateConnectionData(data: unknown): data is ManualConnectionData {
+  if (!data || typeof data !== 'object') return false
+  const d = data as Record<string, unknown>
+  if (typeof d.sdp !== 'string' || d.sdp.length === 0 || d.sdp.length > 65536) return false
+  if (!Array.isArray(d.iceCandidates)) return false
+  if (typeof d.peerId !== 'string' || d.peerId.length === 0 || d.peerId.length > 64) return false
+  return true
+}
+
 interface PeerInviteProps {
   isOpen: boolean
   onClose: () => void
@@ -63,7 +72,10 @@ function CreateInviteTab({ onClose }: { onClose: () => void }) {
     if (!answerInput.trim()) return
     setLoading(true)
     try {
-      const decoded: ManualConnectionData = JSON.parse(atob(answerInput.trim()))
+      const decoded = JSON.parse(atob(answerInput.trim()))
+      if (!validateConnectionData(decoded)) {
+        throw new Error('Invalid connection data structure')
+      }
       await getConnectionManager().handleIncomingAnswer(tempId, decoded)
       toast.success('Connection established!')
       setStep('done')
@@ -153,7 +165,10 @@ function AcceptInviteTab({ onClose }: { onClose: () => void }) {
     if (!offerInput.trim()) return
     setLoading(true)
     try {
-      const decoded: ManualConnectionData = JSON.parse(atob(offerInput.trim()))
+      const decoded = JSON.parse(atob(offerInput.trim()))
+      if (!validateConnectionData(decoded)) {
+        throw new Error('Invalid connection data structure')
+      }
       const response = await getConnectionManager().handleIncomingOffer(decoded)
       const encoded = btoa(JSON.stringify(response))
       setAnswerData(encoded)

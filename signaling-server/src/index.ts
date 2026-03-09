@@ -18,12 +18,22 @@ for (let i = 0; i < args.length; i++) {
 
 const PORT = parseInt(portArg || process.env.PORT || '8080', 10)
 
+// --- Validation constants ---
+const MAX_PEER_ID_LENGTH = 64
+const MAX_DISPLAY_NAME_LENGTH = 100
+const MAX_ROOM_ID_LENGTH = 128
+const MAX_SDP_SIZE = 65_536  // 64KB max for SDP
+const MAX_MESSAGE_SIZE = 131_072  // 128KB max for any message
+const RATE_LIMIT_WINDOW_MS = 10_000
+const RATE_LIMIT_MAX_MESSAGES = 50
+
 interface PeerInfo {
   ws: WebSocket
   peerId: string
   displayName: string
   rooms: Set<string>
   lastPong: number
+  messageTimestamps: number[]  // for rate limiting
 }
 
 const peers = new Map<string, PeerInfo>()
@@ -286,11 +296,30 @@ initMediasoup().catch((err) => console.error('[Signaling] mediasoup init error:'
 
 wss.on('connection', (ws) => {
   let registeredPeerId: string | null = null
+  const connectionMessageTimestamps: number[] = []
 
   ws.on('message', (raw) => {
+    // Message size check
+    const rawStr = raw.toString()
+    if (rawStr.length > MAX_MESSAGE_SIZE) {
+      send(ws, { type: 'error', code: 2001, message: 'Message too large' })
+      return
+    }
+
+    // Rate limiting (per-connection)
+    const now = Date.now()
+    while (connectionMessageTimestamps.length > 0 && now - connectionMessageTimestamps[0] > RATE_LIMIT_WINDOW_MS) {
+      connectionMessageTimestamps.shift()
+    }
+    if (connectionMessageTimestamps.length >= RATE_LIMIT_MAX_MESSAGES) {
+      send(ws, { type: 'error', code: 4029, message: 'Rate limit exceeded' })
+      return
+    }
+    connectionMessageTimestamps.push(now)
+
     let msg: Record<string, unknown>
     try {
-      msg = JSON.parse(raw.toString())
+      msg = JSON.parse(rawStr)
     } catch {
       send(ws, { type: 'error', code: 1000, message: 'Invalid JSON' })
       return
@@ -315,12 +344,21 @@ wss.on('connection', (ws) => {
     switch (type) {
       case 'register': {
         const peerId = msg.peerId as string
-        const displayName = (msg.displayName as string) || 'Anonymous'
+        const rawDisplayName = (msg.displayName as string) || 'Anonymous'
 
-        if (!peerId) {
+        if (!peerId || typeof peerId !== 'string') {
           send(ws, { type: 'error', code: 1002, message: 'Missing peerId' })
           return
         }
+
+        // Validate peerId format and length
+        if (peerId.length > MAX_PEER_ID_LENGTH || !/^[a-zA-Z0-9_-]+$/.test(peerId)) {
+          send(ws, { type: 'error', code: 1002, message: 'Invalid peerId format' })
+          return
+        }
+
+        // Sanitize display name
+        const displayName = rawDisplayName.slice(0, MAX_DISPLAY_NAME_LENGTH)
 
         // Remove old connection if exists
         if (peers.has(peerId)) {
@@ -334,6 +372,7 @@ wss.on('connection', (ws) => {
           displayName,
           rooms: new Set(),
           lastPong: Date.now(),
+          messageTimestamps: [],
         })
 
         send(ws, { type: 'registered', peerId })
@@ -385,10 +424,17 @@ wss.on('connection', (ws) => {
         const peer = getPeerByWs(ws)
         if (!peer) return
 
+        const sdp = msg.sdp as string
+        if (typeof sdp !== 'string' || sdp.length > MAX_SDP_SIZE) {
+          send(ws, { type: 'error', code: 2001, message: 'Invalid or oversized SDP' })
+          return
+        }
+
         const to = msg.to as string
+        if (typeof to !== 'string') return
         const target = peers.get(to)
         if (target) {
-          send(target.ws, { type: 'offer', from: peer.peerId, sdp: msg.sdp })
+          send(target.ws, { type: 'offer', from: peer.peerId, sdp })
         } else {
           send(ws, { type: 'error', code: 1002, message: `Peer ${to} not found` })
         }
@@ -399,10 +445,17 @@ wss.on('connection', (ws) => {
         const peer = getPeerByWs(ws)
         if (!peer) return
 
+        const sdp = msg.sdp as string
+        if (typeof sdp !== 'string' || sdp.length > MAX_SDP_SIZE) {
+          send(ws, { type: 'error', code: 2001, message: 'Invalid or oversized SDP' })
+          return
+        }
+
         const to = msg.to as string
+        if (typeof to !== 'string') return
         const target = peers.get(to)
         if (target) {
-          send(target.ws, { type: 'answer', from: peer.peerId, sdp: msg.sdp })
+          send(target.ws, { type: 'answer', from: peer.peerId, sdp })
         }
         break
       }
@@ -428,8 +481,8 @@ wss.on('connection', (ws) => {
         if (!peer) return
 
         const roomId = msg.roomId as string
-        if (!roomId) {
-          send(ws, { type: 'error', code: 3000, message: 'Missing roomId' })
+        if (!roomId || typeof roomId !== 'string' || roomId.length > MAX_ROOM_ID_LENGTH) {
+          send(ws, { type: 'error', code: 3000, message: 'Missing or invalid roomId' })
           return
         }
 
